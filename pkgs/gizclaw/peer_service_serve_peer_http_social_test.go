@@ -207,9 +207,9 @@ func TestPeerHTTPFriendRejectsRetiringCounterpart(t *testing.T) {
 	if err := f.peers.DeleteSelf(context.Background(), f.a.key); err != nil {
 		t.Fatalf("DeleteSelf: %v", err)
 	}
-	expect(t, f.as(t, f.b, http.MethodPost, "/friends", `{"invite_token":"`+created.InviteToken+`"}`), http.StatusConflict, "PEER_PENDING_DELETION")
-	// The retiring owner's own key is rejected before any handler runs.
-	expect(t, f.as(t, f.a, http.MethodGet, "/friends", ""), http.StatusConflict, "PEER_PENDING_DELETION")
+	expect(t, f.as(t, f.b, http.MethodPost, "/friends", `{"invite_token":"`+created.InviteToken+`"}`), http.StatusConflict, "PEER_DELETED")
+	// The deleted owner's own key is rejected before any handler runs.
+	expect(t, f.as(t, f.a, http.MethodGet, "/friends", ""), http.StatusForbidden, "API_KEY_OWNER_UNAVAILABLE")
 }
 
 func TestPublicSocialErrorCodes(t *testing.T) {

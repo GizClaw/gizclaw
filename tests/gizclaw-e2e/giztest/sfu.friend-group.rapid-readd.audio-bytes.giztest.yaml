@@ -164,6 +164,17 @@ steps:
       request: {friend_group_name: '${group}'}
     expect:
       /items: {count: 2}
+  # The remove/add pair above stays immediate. Poll only membership visibility,
+  # without waiting for the periodic runtime revocation watcher.
+  - id: cycle1_bob_membership_visible
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend_group.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${group_workspace}'}
   - id: cycle1_select
     client: bob
     rpc:
@@ -248,6 +259,15 @@ steps:
       request: {friend_group_name: '${group}'}
     expect:
       /items: {count: 2}
+  - id: cycle2_bob_membership_visible
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend_group.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${group_workspace}'}
   - id: cycle2_select
     client: bob
     rpc:
@@ -332,6 +352,15 @@ steps:
       request: {friend_group_name: '${group}'}
     expect:
       /items: {count: 2}
+  - id: cycle3_bob_membership_visible
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend_group.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${group_workspace}'}
   - id: cycle3_select
     client: bob
     rpc:

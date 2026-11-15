@@ -16,7 +16,7 @@
 
 `BatchGet` 是 `Store` 的必需方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，将物理 record key 去重后一次交给 SDK `BatchGet`，由 SDK 按 Region 和请求大小拆分并行读取；返回结果仍与原输入逐项对应。事务内 mutation 预取也按物理 key 去重，条件检查与 guard 写回保持不变，避免重复读取同一残留锁导致重复解锁。Redis 在选定读连接上发出一条原生 `MGET`，非 string key 与不存在的 key 都作为 `ErrNotFound` 返回。Memory、Badger 和 SQL 实现在 backend 内最多八路并发调用各自的单键读取，不新建连接；调用层不再探测可选批量接口。
 
-所有实现都继承 caller context，不为内部请求重置超时；backend 的有界单键读取在取消后不再启动排队 key 的存储读取。TiKV SDK 或 Redis `MGET` 整批失败时，该次调用的所有 key 都返回错误。Redis `MGET` 是单命令原子读取，TiKV 使用单次历史或强读快照；批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
+所有实现都继承 caller context，不为内部请求重置超时；backend 的有界单键读取在取消后不再启动排队 key 的存储读取。Read/write-separated backends merge committed local postimages into ordinary results; a backend read failure is propagated for keys not satisfied by those postimages. Cancellation remains an error for every affected key. Redis `MGET` 是单命令原子读取，TiKV 使用单次历史或强读快照；批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
 
 ## Server 组合
 
@@ -47,17 +47,17 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 
 `Get`、`BatchGet`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 默认使用读连接。`Set`、`Delete`、`BatchSet`、`BatchDelete`、`BatchMutate`、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
 
-`kv.WithPrimaryReads(ctx)` selects the write authority for bounded update recovery after a rejected condition or an observation inconsistent with a known successful write. A missing target may be refreshed within a mutation such as API Key revocation. Ordinary queries, including authentication negatives and PendingDeletion administration/discovery, retain the configured reader and accept stale absence or errors. The fallback preserves cancellation, deadlines and prefixes, does not pin unrelated requests, and does not combine reads into one snapshot. Final writes still compare their conditions atomically.
+`kv.WithPrimaryReads(ctx)` selects the write authority for bounded update recovery after a rejected condition or an observation inconsistent with a known successful write. A missing target may be refreshed within a mutation such as API Key revocation. Ordinary queries, including authentication negatives and PendingDeletion administration/discovery, retain the configured reader with backend-local write visibility; writes from other backend instances may still produce stale absence or errors. The fallback preserves cancellation, deadlines and prefixes, does not pin unrelated requests, and does not combine reads into one snapshot. Final writes still compare their conditions atomically.
 
-读写分离是显式允许复制延迟的选择：成功写入后立即查询仍可能得到旧值或不存在，多个独立查询也不构成快照。只为能容忍这些结果的消费者选择该 backend；要求最新状态的消费者使用 `WithStrongReads`，或绑定普通 Redis 主节点连接。读端故障直接返回错误，不自动回退主节点；写端故障也不向只读副本写入。两个 URL 的逻辑数据库编号必须一致，部署层负责保证它们属于同一复制组并维护稳定的写入入口。
+Read/write separation permits stale observations of writes made by other backend instances. This instance retains committed local record and collection postimages, including deletions and absolute expiration deadlines, until its reader proves that it covers them. Mutation conditions remain atomic on the writer, and failed conditions or uncertain commits do not publish attempted values. Ordinary Redis stores that read and write one endpoint do not enable this layer. The public `kv.Store` interface and stored business values are unchanged; separate reads still do not form one snapshot.
+
+Read/write-separated Redis requires Redis 7 or newer for exact absolute expiration metadata; unsupported expiration commands are rejected before business mutations run. Redis retirement uses replication identity and offset metadata from the writer and a same-attempt reader query. Deployment must allow `INFO replication` for progress tracking. Missing progress proof retains pending local postimages rather than assuming a fixed replication delay. After covered postimages are reclaimed, the backend retains a compact required replication position; a lagging, replaced or unverifiable reader returns an error for uncovered keys instead of returning state older than retired local writes. Reads never fall back to the writer automatically. Both URLs must address the same logical database and replication group, and deployment owns endpoint topology. Ordinary reads opportunistically reclaim all covered pending postimages; write-only workloads retain them until an ordinary read runs. No reader network request is added to the write path and no hidden worker is started. Process restart creates a new local consistency scope; the layer does not provide cross-process or cross-Server read-your-writes.
 
 Peer record 与 route 共用 `services.peer.store` 指定的 Store。PeerRun 状态和每台 Server 的 Admin Peer 列表使用本机业务 SQL 表，不枚举中心 Redis。
 
 ### TiKV
 
 `storage.kind: tikv` 通过 `pd_addresses` 中的 `host:port` 列表发现集群，使用 Transactional KV API。逻辑 `keyvalue` Store 使用必填、规范且互不重叠的 `prefix`，同一 connector 下共享一个跨 Region 原子 root。所有写入、条件读取和 collection counter 更新都使用新的中心事务；guard 也参与写冲突检测，避免 Snapshot Isolation 的跨 key write skew。只有明确的 write conflict 会有限重试，不重试提交结果不确定的错误。
-
-地区读的时间戳必须落在目标副本的 safe-ts 内，标签偏好不能替代这个条件。TiKV 默认每二十秒推进一次 Resolved TS；若使用五秒等更短的历史窗口，应结合 safe-ts 指标评估 `resolved-ts.advance-ts-interval`。缩短推进间隔会增加 CPU 和节点间流量，配置与限制见 [官方说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。
 
 ```yaml
 storage:
@@ -67,7 +67,6 @@ storage:
     tls_ca_file: /run/secrets/tikv-ca.pem
     tls_cert_file: /run/secrets/tikv-client.pem
     tls_key_file: /run/secrets/tikv-client-key.pem
-    stale_read_delay: 5s
     read_labels:
       region: local
 stores:
@@ -80,7 +79,9 @@ services:
     store: peers
 ```
 
-Omit both `stale_read_delay` and `read_labels` for strong reads throughout. When enabled, both are required; the delay must be an integral number of milliseconds from 1ms to 24h. Ordinary queries subtract the complete millisecond delay from the cached PD timestamp and enable Stale Read, without synchronously requesting a fresh TSO. Cache age adds to the configured history window. Writes and explicit primary reads obtain fresh timestamps. Point, batch and collection queries prefer Learner peers; point and batch selection also uses the configured store labels. SDK health and availability can cause fallback to another replica or the central Leader at the same historical timestamp. Native range scans selected on a Learner carry the stale-read flag so safe historical reads do not require ReadIndex. Cache initialization, Region metadata and GC visibility still depend on the cluster control plane. Unavailable, over-aged or GC-expired snapshots return errors without selecting an older timestamp. Deployment owns replica placement, networking, and GC retention covering the delay plus cache age.
+Configure `read_labels` alone to enable regional reads; omit it or use an empty map for strong reads throughout. Ordinary data reads go directly to label-matching Learners using native TiKV replica-read synchronization. Snapshots use the cached PD timestamp without subtracting a delay; only a missing cache requires a fresh TSO, and the data read still targets a matching Learner. The application does not query or select safe-ts. Native synchronization may require ReadIndex and coordination with the Leader. A strict RPC guard rejects Leader and nonmatching peers for ordinary data reads; failures propagate instead of switching the data read to another authority. There is no configured maximum staleness or fixed default snapshot delay. The deprecated `stale_read_delay` YAML option and Go `TiKVConfig.StaleReadDelay` field are accepted but ignored; YAML duration text is not parsed. Writes, mutation conditions and explicit primary views remain authoritative and obtain fresh timestamps. Deployment owns replica placement, networking and MVCC GC retention.
+
+Regional TiKV readers merge this backend instance's committed physical postimages according to the actual read timestamp. This covers records, collection members, resets, deletions and absolute expiration without changing persistent payload formats. Concurrent transactions publish by commit order, and each read pins its relevant postimages before timestamp selection. Postimages can be reclaimed only when timestamp coverage preserves local write visibility; cached PD time alone does not prove regional replica coverage. Explicit primary reads bypass this layer. Internal expiry-index discovery retains its existing bounded maintenance path. Strong-only TiKV instances do not allocate the local write layer. Read-your-writes is scoped to one backend instance; it is not guaranteed across instances or process restarts.
 
 TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV RPC 和故障恢复健康检查，不修改 client-go 的全局配置。恢复探测通过 `tikv.WithStoreLivenessSecurity` 接收同一 connector 的证书策略；不同 connector 即使访问同一地址，也不共享探测结果。显式无 TLS 的 connector 不继承其他连接的 TLS 配置，TLS 失败不回退到明文。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
 
@@ -104,7 +105,7 @@ Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 dea
 2. 执行 dry-run，解决所有类型、大小及目标冲突后再导入。
 3. 执行导入；中断后可用同一配置重新执行。工具重新扫描，校验已完成的相同记录，并幂等补齐尚未完成的集合。
 4. 执行 `--verify-only`。它检查源→目标和目标→源两个方向；缺失、不同的内容/类型/deadline、未完成集合及目标多余的活跃 key 都使命令非零退出。
-5. 校验成功后，把选中 `stores.*.storage` 改为 TiKV connector，保持原 prefix 和 service binding。等待部署层确认地区 Learner 追平，且普通历史读的快照时间已晚于最后一批导入提交后再恢复服务；至少留出配置的 `stale_read_delay`；控制面查询同样遵循配置的读取策略。保留独立迁移配置可在切换后再次执行 `--verify-only`。最终运行配置移除不再使用的 Redis connector，避免 Server 启动仍连接旧 Redis；不要更改逻辑 Store prefix。
+5. 校验成功后，把选中 `stores.*.storage` 改为 TiKV connector，保持原 prefix 和 service binding。Before restoring service, have deployment confirm that matching Learners can serve native synchronized reads at timestamps later than the final imported commit. 控制面查询同样遵循配置的读取策略。保留独立迁移配置可在切换后再次执行 `--verify-only`。最终运行配置移除不再使用的 Redis connector，避免 Server 启动仍连接旧 Redis；不要更改逻辑 Store prefix。
 
 ```sh
 gizclaw kv-migrate /srv/gizclaw --source redis-old --target tikv --dry-run
@@ -122,7 +123,7 @@ gizclaw kv-migrate /srv/gizclaw --source redis-old --target tikv --verify-only
 
 ### 控制面与权限读取
 
-Peer records and profiles, assignments, deletion fences and tasks, API key authentication, Social relationships, synchronization checkpoints and infrastructure feeds all follow the configured read policy. With regional TiKV reads enabled, successful ordinary reads may retain an old assignment, active Peer, credential or membership until the historical snapshot advances. Revocation and deletion visibility includes that delay; a successful stale read does not itself trigger a primary lookup.
+Peer records and profiles, assignments, deletion fences and tasks, API key authentication, Social relationships, synchronization checkpoints and infrastructure feeds all follow the configured read policy. With regional TiKV reads enabled, successful ordinary reads may retain an old assignment, active Peer, credential or membership written by another backend instance until the read timestamp advances. This instance's committed local writes are visible through its internal write overlay. Revocation and deletion visibility follows that read timestamp; a successful read does not itself trigger a primary lookup.
 
 Writes and their conditions execute on the write authority. A definite conditional conflict, failed identity lookup or observation incompatible with a known successful claim can trigger a bounded primary refresh. Retries preserve explicit versions, fixed ownership, lease tokens and lifecycle identities; uncertain commits are not replayed. Primary fallback applies only to the affected operation. `WithStrongReads` remains available for explicit authority views and offline verification, and does not create a snapshot across separate calls.
 

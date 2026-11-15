@@ -28,7 +28,7 @@ TiKV `ApplyMutation` prefetches condition, record and deletion keys in the same 
 
 ## Server lease
 
-Each Server boot has a unique generation and renews one Server lease every ten seconds, without per-Peer heartbeats. Its default lifetime is thirty seconds. TiKV historical reads add the configured `kv.ReadDelay` window to that lifetime so healthy leases remain valid in historical snapshots. Historical reads still delay visibility of initial connections and later transitions.
+Each Server boot has a unique generation and renews one Server lease every ten seconds, without per-Peer heartbeats. Its default lifetime is thirty seconds. TiKV regional reads add the snapshot lag measured at successful ordinary read completion by `kv.ReadDelay` to that lifetime. The measurement stays fixed during idle periods and write-only activity, and newer snapshot observations refresh it. Ordinary reads use native Learner synchronization; the application does not select safe-ts or configure a snapshot delay, and the measurement is not a maximum staleness bound. Regional reads can still delay visibility of initial connections and later transitions.
 
 Reads validate the snapshot generation, lease and absolute expiry time. A crashed Server, failed renewal or expired lease makes its Peers offline; graceful shutdown revokes the lease. A new generation fences writes, renewal and lease revocation from older processes. Servers should keep their clocks synchronized. Redis lag exceeding the lease window conservatively reports offline.
 

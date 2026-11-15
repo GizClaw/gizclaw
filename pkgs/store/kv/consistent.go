@@ -7,10 +7,11 @@ import (
 
 type strongReadsKey struct{}
 
-// ReadDelay returns the configured historical snapshot delay of ordinary
-// reads. It is zero for strong views and backends without a fixed delay,
-// including Redis replicas whose replication lag is not bounded by the client.
-// Lease owners can account for TiKV historical reads in their validity window.
+// ReadDelay returns the snapshot lag measured when the latest ordinary regional
+// TiKV snapshot was successfully read. The measurement does not grow between
+// reads and is not a configured delay or maximum staleness bound. Strong views,
+// nonregional stores and stores without a successful observation return zero.
+// Lease owners can account for measured reader lag in their validity window.
 func ReadDelay(store Store) time.Duration {
 	switch s := store.(type) {
 	case *strongReadStore:
@@ -18,7 +19,10 @@ func ReadDelay(store Store) time.Duration {
 	case *prefixedStore:
 		return ReadDelay(s.base)
 	case *TiKV:
-		return s.read.StaleReadDelay
+		if s.local != nil {
+			return s.local.readDelay()
+		}
+		return 0
 	default:
 		return 0
 	}

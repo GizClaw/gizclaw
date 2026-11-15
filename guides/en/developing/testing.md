@@ -1526,7 +1526,7 @@ reports. No player model, semantic verdict or score is part of this gate.
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` compares two [audio input paths](/en/developing/gizclaw/services/ai#eino-audio-input-path) using the same upstream `doubao-seed-2-1-lite-260915` and `multilingual-voice`. Both Profiles use `asr` (`volc-bigasr-sauc`). The main Profile configures only `realtime_asr_model` to exercise PTT fallback; `e2e-audio-asr` configures only `ptt_asr_model` to exercise realtime fallback. `e2e-giztest` binds `audio-llm` to `doubao-lite-audio-chat`, sending original audio to Eino with sideband ASR transcription; `e2e-audio-asr` binds the alias to text-only `doubao-lite-chat`, sending ASR text to Eino. Workflow does not select ASR, and Workspace selects input mode only. The script starts one isolated stack and runs `benchmark.eino-audio-input-comparison` for Mandarin, Sichuanese, Cantonese, English, Japanese and Spanish, comparing transcripts, replies and latency for the same recording. `setup/audio_input_comparison.py` saves reports, logs and transcript/text/audio timings to `testdata/audio-input-comparison/`. Each path keeps collecting for 30 seconds after reply completion to observe late independent ASR output; first-text and first-transcript latency still use actual arrival times. Missing expected transcription or reply fails a sample. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies offline parsing and scoring.
+`eino-audio-input` compares two [audio input paths](/en/developing/gizclaw/services/ai#eino-audio-input-path) using the same upstream `doubao-seed-2-1-lite-260915` and `multilingual-voice`. Both Profiles use `asr` (`volc-bigasr-sauc`). The main Profile configures only `realtime_asr_model` to exercise PTT fallback; `e2e-audio-asr` configures only `ptt_asr_model` to exercise realtime fallback. `e2e-giztest` binds `audio-llm` to `doubao-lite-audio-chat`, sending original audio to Eino with sideband ASR transcription; `e2e-audio-asr` binds the alias to text-only `doubao-lite-chat`, sending ASR text to Eino. Workflow does not select ASR, and Workspace selects input mode only. The script starts one isolated stack and runs `benchmark.eino-audio-input-comparison` for Mandarin, Sichuanese, Cantonese, English, Japanese and Spanish, comparing transcripts, replies and latency for the same recording. `setup/audio_input_comparison.py` saves reports, logs and transcript/text/audio timings to `testdata/audio-input-comparison/`. Each path keeps collecting for 30 seconds after reply completion to observe late independent ASR output; first-text and first-transcript latency still use actual arrival times. Acceptance checks both input-path selections, nonempty transcripts and replies, text/audio delivery and EOS, and successful cleanup. The runner exit status and document/step results must pass for both paths. Transcripts and answers remain diagnostic evidence; language recognition accuracy and answer content are not acceptance criteria. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies parsing and rejects incomplete execution without scoring model semantics.
 
 A `peer_stream` result's `/transcript` contains non-interim `transcript` text, `/reply` contains `assistant` text, and `/text` retains all text in arrival order. `eino-audio-input.push-to-talk-transcript` verifies direct Model audio alongside independent ASR and History recording. `eino-audio-input.path-selection` uses RPC to verify direct PTT audio, realtime ASR text, and PTT ASR text under a Profile binding a text-only Model. Workspace selects input mode only.
 
@@ -1940,6 +1940,25 @@ set `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` and
 measured directional aggregate Mbps floors.
 
 ## GenX provider E2E
+
+GenX Transformer integration lives in `tests/genx-e2e/transformer`, using its
+existing `package transformer` and public adapter APIs. Tests that require private
+implementation state remain beside the adapter in `pkgs/genx/transformers/`.
+Local protocol fixtures and live provider tests share this directory and use
+separate execution paths. The Doubao PTT fault-injection cases have no build tag,
+like the provider-free Match and deterministic duplex regressions, so ordinary
+root-module Go and race CI continue to run them without cloud credentials.
+
+From the repository root, run the local cases natively or in Docker:
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+The Docker entrypoint selects only those local cases, does not enable the live
+provider tag, and does not load the credential preflight. The real-provider
+entrypoints below enable `gizclaw_genx_e2e` and require the credential inventory.
 
 Provider-backed transformer coverage uses one complete credential inventory:
 

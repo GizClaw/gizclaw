@@ -37,7 +37,6 @@ tikv_usage=0
 export GIZCLAW_E2E_TIKV_CONTENTION_ONLY=0 GIZCLAW_E2E_SOCIAL_PING_ONLY=0
 export GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS= GIZCLAW_E2E_TIKV_USAGE_ADDRESS=
 export GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_A= GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_B=
-export GIZCLAW_E2E_TIKV_STALE_DELAY=60s
 case "$suite" in
   native-tikv-lag) native_only=1 ;;
   tikv-contention)
@@ -45,7 +44,7 @@ case "$suite" in
     export GIZCLAW_E2E_TIKV_CONTENTION_ONLY=1 GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS=0.0.0.0:9790 ;;
   tikv-usage-giztest)
     tikv_usage=1
-    export GIZCLAW_E2E_TIKV_USAGE_ADDRESS=0.0.0.0:9791 GIZCLAW_E2E_TIKV_STALE_DELAY=2s
+    export GIZCLAW_E2E_TIKV_USAGE_ADDRESS=0.0.0.0:9791
     # Published synthetic identities already used by this fixture's seed role.
     export GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_A=BHUtU547UzMM5ZBvGCEEgiFcCND4hpMvRcfTSHVayiDr
     export GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_B=BJ4LoLyU7mbs1e56jahtyJEJHyh3DEWHXsBZr98SyQyf
@@ -325,7 +324,7 @@ pathlib.Path(report).write_text(json.dumps({
     "source_untracked_sha256": source_hashes,
     "source_untracked_symlinks": source_symlinks,
     "source_untracked_special": source_special,
-    "stale_delay": "2s" if suite == "tikv-usage-giztest" else "60s",
+    "regional_read_strategy": "native label-matching Learner reads with replica-read synchronization; no automatic Leader data fallback",
     "revision": subprocess.check_output(["git", "-C", repository, "rev-parse", "HEAD"], text=True).strip(),
     "source_diff_sha256": hashlib.sha256(diff).hexdigest(),
     "binary_sha256": {pathlib.Path(p).name: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in [server, tests, seed]},
@@ -366,6 +365,7 @@ if [[ -z "$GIZCLAW_TEST_REGISTRATION_TOKEN_A" || -z "$GIZCLAW_TEST_REGISTRATION_
 fi
 export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 
+go_status=0
 if [[ -z "$sfu_case" && "$tikv_usage" == 0 ]]; then
   echo "==> go multi-server tests"
   test_run='.'
@@ -375,7 +375,11 @@ if [[ -z "$sfu_case" && "$tikv_usage" == 0 ]]; then
     social-ping) test_run='^TestSocialPingCrossServer$' ;;
   esac
   compose run --rm -T tests \
-    -test.run "$test_run" -test.parallel 1 -test.timeout=10m | tee "$report_dir/go-tests.log"
+    -test.run "$test_run" -test.parallel 1 -test.timeout=10m | tee "$report_dir/go-tests.log" || {
+    go_status=$?
+    if [[ "$suite" != full ]]; then exit "$go_status"; fi
+    echo "Go multi-server tests failed (exit status $go_status); continuing with SFU scenarios" >&2
+  }
 fi
 
 if [[ "$tikv_contention" == 1 ]]; then
@@ -541,5 +545,9 @@ if ! GIZCLAW_E2E_GIZTEST_REPORT_NAME="$report_name" compose run --rm -T giztest 
   echo "SFU giztest scenarios failed; report: $report_dir/$report_name" >&2
   print_giztest_failures "$report_dir/$report_name"
   exit 1
+fi
+if ((go_status != 0)); then
+  echo "SFU scenarios completed, but Go multi-server tests failed (exit status $go_status); evidence: $report_dir" >&2
+  exit "$go_status"
 fi
 echo "==> multi-server e2e completed (provider scenarios: $GIZCLAW_E2E_SFU_PROVIDER)"

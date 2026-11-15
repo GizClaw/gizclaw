@@ -21,6 +21,8 @@ type Spec struct {
 	AgentType   string
 	Runtime     workspace.Runtime
 	ToolInvoker genx.ToolInvoker
+	// MCP selects private Server-owned MCP connections for this generation.
+	MCP *MCPConfig
 	// ToolVerificationModel selects an independent semantic checker for mutating
 	// calls. The primary model still proposes native ToolCalls.
 	ToolVerificationModel string

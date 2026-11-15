@@ -50,7 +50,7 @@ func newTiKVSnapshotTestStore(t *testing.T, clock *tiKVSnapshotOracle, stale boo
 	client.SetOracle(clock)
 	var read TiKVReadOptions
 	if stale {
-		read = TiKVReadOptions{StaleReadDelay: 1501 * time.Millisecond, Labels: map[string]string{"region": "local"}}
+		read = TiKVReadOptions{Labels: map[string]string{"region": "local"}}
 	}
 	store, err := NewTiKVWithClient(client, read, nil)
 	if err != nil {
@@ -102,13 +102,13 @@ func TestTiKVSnapshotOracle(t *testing.T) {
 
 func TestTiKVSnapshotCacheError(t *testing.T) {
 	cacheErr := errors.New("timestamp cache unavailable")
-	clock := &tiKVSnapshotOracle{cachedErr: cacheErr}
+	clock := &tiKVSnapshotOracle{cachedErr: cacheErr, cachedTS: 100, freshTS: 200}
 	store := newTiKVSnapshotTestStore(t, clock, true)
-	if _, err := store.snapshot(t.Context()); !errors.Is(err, cacheErr) {
-		t.Fatalf("cache error=%v, want %v", err, cacheErr)
+	if _, ts, err := store.snapshotWithTimestamp(t.Context()); err != nil || ts != clock.freshTS {
+		t.Fatalf("cache error did not use a fresh snapshot timestamp: ts=%d err=%v", ts, err)
 	}
-	if clock.cachedCalls != 1 || clock.freshCalls != 0 {
-		t.Fatalf("cache failure triggered authority lookup: cached=%d fresh=%d", clock.cachedCalls, clock.freshCalls)
+	if clock.cachedCalls != 1 || clock.freshCalls != 1 {
+		t.Fatalf("fallback timestamps: cached=%d fresh=%d", clock.cachedCalls, clock.freshCalls)
 	}
 }
 

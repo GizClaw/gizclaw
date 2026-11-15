@@ -22,7 +22,11 @@ import (
 func TestReadWriteRedisSharedPresence(t *testing.T) {
 	f := newReadWriteRedisFixture(t)
 	a := peerpresence.New(f.first, giznet.PublicKey{21})
-	b := peerpresence.New(f.first, giznet.PublicKey{22})
+	observer, err := kv.NewRedisReadWriteWithClients(f.read, f.write, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := peerpresence.New(kv.Prefixed(observer, kv.Key{f.prefix, "first"}), giznet.PublicKey{22})
 	for _, s := range []*peerpresence.Service{a, b} {
 		if err := s.Start(t.Context()); err != nil {
 			t.Fatal(err)
@@ -439,8 +443,15 @@ func TestReadWriteRedisStrongViews(t *testing.T) {
 				if err := f.read.Close(); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := f.first.Get(ctx, kv.Key{"record"}); !errors.Is(err, redis.ErrClosed) {
-					t.Fatalf("ordinary read did not use failed reader: %v", err)
+				if value, err := f.first.Get(ctx, kv.Key{"record"}); err != nil || string(value) != "current" {
+					t.Fatalf("local write lost with failed reader: %q %v", value, err)
+				}
+				observer, err := kv.NewRedisReadWriteWithClients(f.read, f.write, nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := kv.Prefixed(observer, kv.Key{f.prefix, "first"}).Get(ctx, kv.Key{"record"}); !errors.Is(err, redis.ErrClosed) {
+					t.Fatalf("remote ordinary read did not use failed reader: %v", err)
 				}
 				if value, err := strong.Get(ctx, kv.Key{"record"}); err != nil || string(value) != "current" {
 					t.Fatalf("strong Get=%q %v", value, err)

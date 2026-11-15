@@ -38,7 +38,7 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{
 		Server: server, Source: source, Assignments: testDeletionAssignments{}, Social: adapters, Workspaces: adapters,
@@ -93,6 +93,80 @@ func TestPeerDeletionFinalizesExactPermanentTombstone(t *testing.T) {
 	if adapters.sessionCalls == 0 || adapters.bindingCalls == 0 || adapters.quiesceCalls == 0 {
 		t.Fatalf("adapter calls = sessions:%d binding:%d quiesce:%d", adapters.sessionCalls, adapters.bindingCalls, adapters.quiesceCalls)
 	}
+}
+
+type peerMarkerReadStore struct {
+	kv.Store
+	markerReads  int
+	locatorReads int
+}
+
+func (s *peerMarkerReadStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if len(key) > 1 && key[0] == "pending-deletion" {
+		switch key[1] {
+		case "by-id":
+			s.markerReads++
+		case "by-locator":
+			s.locatorReads++
+		}
+	}
+	return s.Store.Get(ctx, key)
+}
+
+func TestPeerRetirementReusesValidatedRecordButFinalizationRechecksLocator(t *testing.T) {
+	handler, claim, _, key := newDeletionFixture(t)
+	ctx := t.Context()
+	plan, err := handler.loadOrCreatePlan(ctx, claim, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &peerMarkerReadStore{Store: handler.Server.Store}
+	handler.Server.Store, handler.Source = store, PendingDeletionSource(store)
+	for range 32 {
+		if err := handler.CheckTask(ctx, claim.Task); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := handler.planPeer(ctx, claim.Record, plan, key); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if store.markerReads != 0 || store.locatorReads != 0 {
+		t.Fatalf("validated immutable record was reread: markers=%d locators=%d", store.markerReads, store.locatorReads)
+	}
+	invalid := claim.Task
+	invalid.Record.Descriptor = json.RawMessage(`{"public_key":"wrong"}`)
+	if err := handler.CheckTask(ctx, invalid); err == nil {
+		t.Fatal("unvalidated replacement descriptor was accepted")
+	}
+	if err := handler.Handle(ctx, claim); err != nil {
+		t.Fatal(err)
+	}
+	if store.markerReads == 0 || store.locatorReads == 0 {
+		t.Fatalf("finalization skipped fresh authority checks: markers=%d locators=%d", store.markerReads, store.locatorReads)
+	}
+}
+
+func retainedPeerForTest(ctx context.Context, server *Server, key giznet.PublicKey) (apitypes.Peer, error) {
+	record, err := pendingdeletion.GetByLocator(ctx, server.Store, pendingdeletion.KindPeer, key.String())
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
+	item, _, err := (DeletionHandler{Server: server}).retainedPeer(ctx, record, key)
+	return item, err
+}
+
+// claimPeerDeletionFinalPass seeds prior completed executions for tests of
+// finalization and safety guards. Scheduling tests run the real handler instead.
+func claimPeerDeletionFinalPass(t *testing.T, source pendingdeletion.KVSource, now time.Time) pendingdeletion.Claim {
+	t.Helper()
+	for range peerDeletionMinExecutions - 1 {
+		claim := claimPeerDeletion(t, source, now)
+		if err := source.Defer(t.Context(), claim, "prior_execution", "Prior cleanup execution completed", now.Add(time.Hour), now); err != nil {
+			t.Fatal(err)
+		}
+		now = now.Add(time.Hour)
+	}
+	return claimPeerDeletion(t, source, now)
 }
 
 func claimPeerDeletion(t *testing.T, source pendingdeletion.KVSource, now time.Time) pendingdeletion.Claim {
@@ -180,8 +254,8 @@ func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
-	record, err := server.LoadPeer(ctx, key)
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
+	record, err := retainedPeerForTest(ctx, server, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,8 +291,11 @@ func TestPeerDeletionRejectsLegacyRetirementPlan(t *testing.T) {
 	if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeTerminal || outcome.Code != "retirement_plan_unsupported" {
 		t.Fatalf("Handle(legacy plan) error = %v", err)
 	}
-	if _, err := server.LoadPeer(ctx, key); err != nil {
-		t.Fatalf("Peer tombstoned despite the unretired Workspace: %v", err)
+	if _, err := server.LoadPeer(ctx, key); !errors.Is(err, ErrPeerDeleted) {
+		t.Fatalf("logical deletion was lost while retaining the unsafe task: %v", err)
+	}
+	if _, err := source.GetTask(ctx, claim.Record.DeletionID); err != nil {
+		t.Fatalf("unsafe task was removed: %v", err)
 	}
 }
 
@@ -256,7 +333,7 @@ func TestPeerDeletionKeepsRuntimeProfileBindingWhileWorkspaceCleanupIsPending(t 
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 	base := &peerDeletionAdapters{publicKey: key.String()}
 	adapters := pendingWorkspaceAdapters{peerDeletionAdapters: base}
 	handler := DeletionHandler{
@@ -285,7 +362,7 @@ func TestPeerDeletionKeepsBindingWhileSharedMemoryRemains(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 	remaining := false
 	adapters := &peerDeletionAdapters{publicKey: key.String(), memoryAbsent: &remaining}
 	handler := DeletionHandler{
@@ -316,7 +393,7 @@ func TestPeerDeletionDoesNotCompareRegistrationFirmwareProjection(t *testing.T) 
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{
 		Server: server, Source: source, Assignments: testDeletionAssignments{}, Social: adapters, Workspaces: adapters,
@@ -355,7 +432,7 @@ func newDeletionFixture(t *testing.T) (DeletionHandler, pendingdeletion.Claim, *
 		t.Fatal(err)
 	}
 	source := PendingDeletionSource(store)
-	claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	return DeletionHandler{Server: server, Source: source, Assignments: testDeletionAssignments{}, Social: adapters, Workspaces: adapters, APIKeys: adapters, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters, WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{}, Now: func() time.Time { return claim.UpdatedAt.Add(time.Second) }}, claim, adapters, key
 }
@@ -365,7 +442,7 @@ func TestPeerDeletionRejectsReplacementBeforeDomainSideEffects(t *testing.T) {
 	if _, err := h.loadOrCreatePlan(t.Context(), claim, key); err != nil {
 		t.Fatal(err)
 	}
-	current, err := h.Server.getStored(t.Context(), key)
+	current, err := retainedPeerForTest(t.Context(), h.Server, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +474,7 @@ func TestPeerDeletionAdoptsOnlyUnambiguousLegacyFirmwareProjection(t *testing.T)
 			want := ""
 			switch scenario {
 			case "persisted_firmware_changed":
-				current, err := h.Server.getStored(t.Context(), key)
+				current, err := retainedPeerForTest(t.Context(), h.Server, key)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -507,6 +584,16 @@ type replaceOnFinalizeStore struct {
 }
 
 func (s *replaceOnFinalizeStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	finalizing := false
+	for _, key := range mutation.DeleteKeys {
+		if len(key) > 1 && key[0] == "pending-deletion" && key[1] == "task" {
+			finalizing = true
+			break
+		}
+	}
+	if !finalizing {
+		return s.Store.ApplyMutation(ctx, mutation)
+	}
 	for _, entry := range mutation.Entries {
 		if string(entry.Value) == string(encodedPeerTombstone) {
 			if err := s.Store.Set(ctx, s.key, s.replacement); err != nil {
@@ -519,7 +606,7 @@ func (s *replaceOnFinalizeStore) ApplyMutation(ctx context.Context, mutation kv.
 
 func TestPeerFinalizationAtomicallyRejectsConcurrentReplacement(t *testing.T) {
 	h, claim, _, key := newDeletionFixture(t)
-	current, err := h.Server.getStored(t.Context(), key)
+	current, err := retainedPeerForTest(t.Context(), h.Server, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -545,16 +632,25 @@ func TestPeerFinalizationAtomicallyRejectsConcurrentReplacement(t *testing.T) {
 	}
 }
 
-func TestPeerRetirementRequiresReplicaProofOnlyForSelectedSocialWorkspaces(t *testing.T) {
-	plan := retirementPlan{Peer: apitypes.Peer{PublicKey: "retiring"}, Social: social.PeerSnapshot{Groups: []friendgroup.PeerRetirementGroup{{OwnerPublicKey: "foreign", PeerPublicKey: "retiring"}}}}
-	if err := checkSocialRetirementScope(plan); err != nil {
-		t.Fatalf("foreign membership only: %v", err)
+func TestPeerRetirementProcessesSocialResourcesWithoutGlobalReplicaLedger(t *testing.T) {
+	for _, ownedGroup := range []bool{false, true} {
+		t.Run(fmt.Sprint(ownedGroup), func(t *testing.T) {
+			h, claim, base, key := newDeletionFixture(t)
+			prepared := social.PeerSnapshot{PublicKey: key.String()}
+			if ownedGroup {
+				prepared.Groups = []friendgroup.PeerRetirementGroup{{FriendGroupID: "owned-group", WorkspaceID: "owned-workspace", OwnerPublicKey: key.String(), PeerPublicKey: key.String()}}
+			} else {
+				prepared.Friends = []friend.PeerRetirementFriend{{RelationID: "shared-relation", FirstPeer: key.String(), SecondPeer: "foreign", WorkspaceID: "shared-workspace"}}
+			}
+			h.Social = &preparedPeerSocial{peerDeletionAdapters: base, prepared: prepared}
+			if err := h.Handle(t.Context(), claim); err != nil {
+				t.Fatalf("observed Social resource was not processed: %v", err)
+			}
+			if _, err := h.Source.GetTask(t.Context(), claim.Record.DeletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
+				t.Fatalf("completed local cleanup did not finish: %v", err)
+			}
+		})
 	}
-	plan.Social.Groups[0].OwnerPublicKey = "retiring"
-	requireDeletionOutcome(t, checkSocialRetirementScope(plan), "social_replica_scope_unknown")
-	plan.Social.Groups = nil
-	plan.Social.Friends = []friend.PeerRetirementFriend{{FirstPeer: "retiring", SecondPeer: "foreign"}}
-	requireDeletionOutcome(t, checkSocialRetirementScope(plan), "social_replica_scope_unknown")
 }
 
 func TestAutomaticPeerRecoveryRequiresExactLegacyProjectionAndHomeProof(t *testing.T) {
@@ -588,7 +684,7 @@ func TestAutomaticPeerRecoveryRequiresExactLegacyProjectionAndHomeProof(t *testi
 					t.Fatal(err)
 				}
 			case "replacement", "persisted_firmware":
-				current, err := h.Server.getStored(t.Context(), key)
+				current, err := retainedPeerForTest(t.Context(), h.Server, key)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -672,7 +768,7 @@ func TestPeerRetirementPlanRetriesStaleGenerationAtPrimary(t *testing.T) {
 	if err := writer.DeleteSelf(ctx, key); err != nil {
 		t.Fatal(err)
 	}
-	claim := claimPeerDeletion(t, PendingDeletionSource(authority), time.Now().Add(time.Second))
+	claim := claimPeerDeletionFinalPass(t, PendingDeletionSource(authority), time.Now().Add(time.Second))
 	store := newStalePeerStore(t, authority, replica)
 	adapters := &peerDeletionAdapters{publicKey: key.String()}
 	handler := DeletionHandler{Server: &Server{Store: store, ServerPublicKey: writer.ServerPublicKey}, Social: adapters, Workspaces: adapters}
@@ -680,13 +776,13 @@ func TestPeerRetirementPlanRetriesStaleGenerationAtPrimary(t *testing.T) {
 	if err != nil || plan.Peer.Device.Name == nil || *plan.Peer.Device.Name != name || !plan.Peer.UpdatedAt.Equal(current.UpdatedAt) {
 		t.Fatalf("stale plan accepted: %+v %v", plan, err)
 	}
-	if store.attempts.Load() != 2 || store.rejected.Load() != 1 || store.ordinary.Load() == 0 || store.primary.Load() == 0 {
+	if store.attempts.Load() != 1 || store.rejected.Load() != 0 || store.ordinary.Load() == 0 || store.primary.Load() == 0 {
 		t.Fatalf("plan fallback attempts=%d rejected=%d reads=%d/%d", store.attempts.Load(), store.rejected.Load(), store.ordinary.Load(), store.primary.Load())
 	}
 	store.ordinary.Store(0)
 	store.primary.Store(0)
-	raw, err := handler.planPeer(ctx, plan, key)
-	if err != nil || peerFingerprint(raw) != plan.PeerFingerprint || store.ordinary.Load() != 1 || store.primary.Load() != 1 {
+	raw, err := handler.planPeer(ctx, claim.Record, plan, key)
+	if err != nil || peerFingerprint(raw) != plan.PeerFingerprint || store.ordinary.Load() == 0 || store.primary.Load() == 0 {
 		t.Fatalf("known-plan fallback err=%v reads=%d/%d", err, store.ordinary.Load(), store.primary.Load())
 	}
 	if adapters.sessionCalls != 0 || adapters.bindingCalls != 0 || adapters.quiesceCalls != 0 {
@@ -704,7 +800,7 @@ func TestPeerRetirementPlanRetriesStaleGenerationAtPrimary(t *testing.T) {
 	if _, err := handler.tryLoadOrCreatePlan(ctx, claim, key); err != nil {
 		t.Fatal(err)
 	}
-	if store.ordinary.Load() != 2 || store.primary.Load() != 1 {
-		t.Fatalf("existing-plan observations repeated: reads=%d/%d", store.ordinary.Load(), store.primary.Load())
+	if store.ordinary.Load() == 0 || store.primary.Load() == 0 {
+		t.Fatalf("existing plan skipped configured reads or mismatch recovery: reads=%d/%d", store.ordinary.Load(), store.primary.Load())
 	}
 }

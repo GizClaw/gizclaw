@@ -268,6 +268,159 @@ func TestProcessorWakeRunsCommittedTaskAndEmitsBoundedMetrics(t *testing.T) {
 	}
 }
 
+type outcomeTestHandler struct {
+	handle func(context.Context, Claim) error
+}
+
+func (*outcomeTestHandler) Kind() Kind { return KindPeer }
+func (h *outcomeTestHandler) Handle(ctx context.Context, claim Claim) error {
+	return h.handle(ctx, claim)
+}
+
+type retryPolicyTestHandler struct {
+	outcomeTestHandler
+	interval time.Duration
+	minimum  int
+}
+
+func (h *retryPolicyTestHandler) RetryPolicy() (time.Duration, int) {
+	return h.interval, h.minimum
+}
+
+func TestProcessorRetryPolicyScheduling(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		policy     bool
+		outcome    error
+		delay      time.Duration
+		wantStatus Status
+		wantCode   string
+	}{
+		{name: "retryable", policy: true, outcome: Retryable("transient", "transient", nil), delay: time.Hour, wantStatus: StatusRetryWait, wantCode: "transient"},
+		{name: "unclassified", policy: true, outcome: errors.New("unexpected failure"), delay: time.Hour, wantStatus: StatusRetryWait, wantCode: "handler_error"},
+		{name: "timeout", policy: true, delay: time.Hour, wantStatus: StatusRetryWait, wantCode: "attempt_timeout"},
+		{name: "deferred", policy: true, outcome: Deferred("wait", "wait", 17*time.Minute), delay: 17 * time.Minute, wantStatus: StatusRetryWait, wantCode: "wait"},
+		{name: "terminal", policy: true, outcome: Terminal("unsafe", "unsafe", nil), wantStatus: StatusFailed, wantCode: "unsafe"},
+		{name: "ordinary retry budget", outcome: Retryable("ordinary", "ordinary", nil), wantStatus: StatusFailed, wantCode: "ordinary"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			now := time.Unix(1000, 0)
+			finished := now.Add(20 * time.Second)
+			store := kv.NewMemory(nil)
+			source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			record, err := New(KindPeer, "policy-scheduling", nil, ReasonPeerDelete, struct{}{}, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := CreateOrGet(t.Context(), store, record); err != nil {
+				t.Fatal(err)
+			}
+			task, raw, err := source.loadTask(t.Context(), record.DeletionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			task.FailureCount, task.ExecutionCount = 9, 9
+			if matched, err := source.writeTask(t.Context(), task, raw); err != nil || !matched {
+				t.Fatalf("seed failures = %v, %v", matched, err)
+			}
+			baseHandler := outcomeTestHandler{handle: func(ctx context.Context, _ Claim) error {
+				if test.name == "timeout" {
+					<-ctx.Done()
+				}
+				now = finished
+				return test.outcome
+			}}
+			var handler Handler = &baseHandler
+			if test.policy {
+				handler = &retryPolicyTestHandler{outcomeTestHandler: baseHandler, interval: time.Hour, minimum: 32}
+			}
+			registry := NewRegistry()
+			if err := registry.Register(source, handler); err != nil {
+				t.Fatal(err)
+			}
+			config := DefaultConfig()
+			config.AttemptTimeout = 10 * time.Millisecond
+			processor, err := NewProcessor(registry, config, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			processor.now = func() time.Time { return now }
+			processor.process(t.Context(), dispatchItem{source: source, ref: Reference{Source: source.Name(), DeletionID: record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}})
+			current, err := source.GetTask(t.Context(), record.DeletionID)
+			if err != nil || current.Status != test.wantStatus || current.LastErrorCode != test.wantCode || current.ExecutionCount != 10 {
+				t.Fatalf("processed task = %#v, %v", current, err)
+			}
+			if test.name == "deferred" {
+				if current.FailureCount != 9 {
+					t.Fatalf("deferral consumed failure budget: %d", current.FailureCount)
+				}
+			} else if current.FailureCount != 10 {
+				t.Fatalf("failure count = %d, want 10", current.FailureCount)
+			}
+			if test.policy && !current.NextAttemptAt.Equal(finished.Add(test.delay)) {
+				t.Fatalf("next attempt = %v, want completion + %v", current.NextAttemptAt, test.delay)
+			}
+		})
+	}
+}
+
+func TestProcessorRetryPolicyFailureLimit(t *testing.T) {
+	for _, configuredLimit := range []int{10, 40} {
+		t.Run(map[int]string{10: "policy minimum", 40: "larger configured limit"}[configuredLimit], func(t *testing.T) {
+			now := time.Unix(1000, 0)
+			store := kv.NewMemory(nil)
+			source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			record, err := New(KindPeer, "policy-limit", nil, ReasonPeerDelete, struct{}{}, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := CreateOrGet(t.Context(), store, record); err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			handler := &retryPolicyTestHandler{
+				outcomeTestHandler: outcomeTestHandler{handle: func(context.Context, Claim) error {
+					calls++
+					now = now.Add(20 * time.Second)
+					return Retryable("temporary", "temporary", nil)
+				}}, interval: time.Hour, minimum: 32,
+			}
+			registry := NewRegistry()
+			if err := registry.Register(source, handler); err != nil {
+				t.Fatal(err)
+			}
+			config := DefaultConfig()
+			config.MaxAttempts = configuredLimit
+			processor, err := NewProcessor(registry, config, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			processor.now = func() time.Time { return now }
+			limit := max(configuredLimit, 32)
+			for attempt := 1; attempt <= limit; attempt++ {
+				refs, _, err := source.ScanDue(t.Context(), now, 1, "")
+				if err != nil || len(refs) != 1 {
+					t.Fatalf("due at attempt %d = %v, %v", attempt, refs, err)
+				}
+				processor.process(t.Context(), dispatchItem{source: source, ref: refs[0]})
+				task, err := source.GetTask(t.Context(), record.DeletionID)
+				wantStatus := StatusRetryWait
+				if attempt == limit {
+					wantStatus = StatusFailed
+				}
+				if err != nil || task.Status != wantStatus || task.FailureCount != attempt || task.ExecutionCount != attempt || !task.NextAttemptAt.Equal(now.Add(time.Hour)) {
+					t.Fatalf("attempt %d task = %#v, %v", attempt, task, err)
+				}
+				now = task.NextAttemptAt
+			}
+			refs, _, err := source.ScanDue(t.Context(), now.Add(time.Hour), 1, "")
+			if err != nil || len(refs) != 0 || calls != limit {
+				t.Fatalf("failed task rediscovered: refs=%v, calls=%d, error=%v", refs, calls, err)
+			}
+		})
+	}
+}
+
 type panicHandler struct{}
 
 func (*panicHandler) Kind() Kind { return KindPeer }

@@ -132,7 +132,7 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	peer, err := s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
+	_, err = s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
 	if err != nil {
 		if errors.Is(err, ErrPeerDeleted) {
 			return adminhttp.DeletePeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
@@ -142,7 +142,7 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 		}
 		return adminhttp.DeletePeer500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminhttp.DeletePeer200JSONResponse(toAdminRegistrationResult(peer)), nil
+	return adminhttp.DeletePeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
 }
 
 // GetPeer implements `adminhttp.StrictServerInterface.GetPeer`.

@@ -44,14 +44,48 @@ func usageResponseInfo(response *tikvrpc.Response) usageResponseMetadata {
 type usageReadReceiptKey struct{}
 type usageReadReceipt struct{ learner atomic.Bool }
 
-func usageRecordRead(ctx context.Context, req *tikvrpc.Request, response *tikvrpc.Response, err error) {
-	receipt, _ := ctx.Value(usageReadReceiptKey{}).(*usageReadReceipt)
-	if receipt == nil || err != nil || req.Type != tikvrpc.CmdGet || req.Peer.GetRole() != metapb.PeerRole_Learner || response == nil {
+// recordNativeRead accepts only successful native data reads from Learners.
+// Get alone records the optional caller receipt. All data reads independently
+// advance the maximum actual snapshot, before any response boundary holds it.
+func (g *UsageGate) recordNativeRead(ctx context.Context, req *tikvrpc.Request, response *tikvrpc.Response, err error) {
+	if err != nil || response == nil || req.Peer.GetRole() != metapb.PeerRole_Learner {
 		return
 	}
-	value, ok := response.Resp.(*kvrpcpb.GetResponse)
-	if ok && value != nil && value.RegionError == nil && value.Error == nil {
-		receipt.learner.Store(true)
+	var pairs []*kvrpcpb.KvPair
+	switch req.Type {
+	case tikvrpc.CmdGet:
+		value, ok := response.Resp.(*kvrpcpb.GetResponse)
+		if !ok || value == nil || value.RegionError != nil || value.Error != nil {
+			return
+		}
+		if receipt, _ := ctx.Value(usageReadReceiptKey{}).(*usageReadReceipt); receipt != nil {
+			receipt.learner.Store(true)
+		}
+	case tikvrpc.CmdBatchGet:
+		value, ok := response.Resp.(*kvrpcpb.BatchGetResponse)
+		if !ok || value == nil || value.RegionError != nil || value.Error != nil {
+			return
+		}
+		pairs = value.Pairs
+	case tikvrpc.CmdScan:
+		value, ok := response.Resp.(*kvrpcpb.ScanResponse)
+		if !ok || value == nil || value.RegionError != nil || value.Error != nil {
+			return
+		}
+		pairs = value.Pairs
+	default:
+		return
+	}
+	for _, pair := range pairs {
+		if pair == nil || pair.Error != nil {
+			return
+		}
+	}
+	_, _, version := usageKeys(req)
+	for previous := g.regionalReadTS.Load(); version > previous; previous = g.regionalReadTS.Load() {
+		if g.regionalReadTS.CompareAndSwap(previous, version) {
+			return
+		}
 	}
 }
 

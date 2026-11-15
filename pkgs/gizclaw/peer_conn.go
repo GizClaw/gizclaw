@@ -430,6 +430,14 @@ func (h *PeerConn) initRPC() {
 		_ = h.close()
 	}
 	if h.Service != nil && h.Service.manager != nil {
+		manager, conn := h.Service.manager, h.Conn
+		h.rpc.isCallerActive = func() bool {
+			if conn == nil || h.isRetiring() {
+				return false
+			}
+			active, ok := manager.Peer(conn.PublicKey())
+			return ok && active == conn
+		}
 		h.rpc.peer = h.Service.manager.Peers
 		h.rpc.peerRun = h.Service.manager.PeerRun
 		h.rpc.peerRunRuntime = h.agentHost

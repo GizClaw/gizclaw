@@ -22,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/mcpclient"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
@@ -319,6 +320,9 @@ func (s *Server) Close() error {
 		errs = append(errs, s.manager.PeerQuota.Close(ctx))
 		cancel()
 	}
+	if s.manager != nil && s.manager.MCPClients != nil {
+		errs = append(errs, s.manager.MCPClients.Close())
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}
@@ -474,6 +478,7 @@ func (s *Server) init() error {
 	manager.GraphStateDB = s.GraphStateDB
 	manager.MemoryRoot = s.MemoryRoot
 	manager.MemoryStores = memorystore.NewRegistry()
+	manager.MCPClients = mcpclient.NewRegistry()
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
@@ -695,6 +700,7 @@ func (s *Server) init() error {
 		ToolCatalog:            manager.ToolCatalog,
 		ToolCredentials:        credentialServer,
 		HTTPTools:              s.ToolHTTPExecutor,
+		MCPRegistry:            manager.MCPClients,
 	}
 	manager.AgentHost = agenthost.New(agentResolver)
 	manager.Workspaces = workspaceServer

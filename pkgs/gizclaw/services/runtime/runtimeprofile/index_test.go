@@ -3,7 +3,9 @@ package runtimeprofile
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -47,6 +49,54 @@ func (source *testSource) ForEachProfile(ctx context.Context, consume func(apity
 		}
 	}
 	return fail
+}
+
+func TestIndexMCPServersAndWorkflowSelections(t *testing.T) {
+	server := apitypes.RuntimeProfileMCPServer{
+		Endpoint: "https://mcp.example.test/mcp", Headers: new(map[string]string{"Authorization": "Bearer private-test-value"}), RefreshInterval: new("5m0s"),
+	}
+	selections := map[string]apitypes.RuntimeProfileMCPSelection{"remote": {Resources: new(true), Tools: new([]string{"search"})}}
+	source := &testSource{profiles: []apitypes.RuntimeProfile{
+		{Id: "second", Revision: "r2", Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{McpServers: new(map[string]apitypes.RuntimeProfileMCPServer{"remote": server})}}},
+		{Id: "first", Revision: "r1", Spec: apitypes.RuntimeProfileSpec{
+			Resources: apitypes.RuntimeProfileResources{McpServers: new(map[string]apitypes.RuntimeProfileMCPServer{"remote": server})},
+			Workflows: apitypes.RuntimeProfileWorkflows{"assistant": {ResourceId: "canonical", Mcp: &selections}},
+		}},
+	}}
+	index := New(source, time.Hour)
+	if err := index.Initialize(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = index.Close() })
+	entries, err := index.ListEntries(t.Context(), "mcp_server")
+	if err != nil || len(entries) != 2 || entries[0].RuntimeProfileID != "first" || entries[1].RuntimeProfileID != "second" {
+		t.Fatalf("MCP server entries = %#v, %v", entries, err)
+	}
+	entry, err := index.GetEntry(t.Context(), "first", "mcp_server", "remote")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored apitypes.RuntimeProfileMCPServer
+	if err := json.Unmarshal(entry.Value, &stored); err != nil || !reflect.DeepEqual(stored, server) {
+		t.Fatalf("indexed MCP server changed: %v", err)
+	}
+	entry, err = index.GetEntry(t.Context(), "first", "workflow", "assistant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var binding apitypes.RuntimeProfileWorkflowBinding
+	if err := json.Unmarshal(entry.Value, &binding); err != nil || !reflect.DeepEqual(binding.Mcp, &selections) {
+		t.Fatalf("indexed MCP permissions changed: %v", err)
+	}
+	source.mu.Lock()
+	source.profiles[1].Spec.Resources.McpServers = nil
+	source.mu.Unlock()
+	if err := index.Refresh(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := index.GetEntry(t.Context(), "first", "mcp_server", "remote"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("removed MCP server remains indexed: %v", err)
+	}
 }
 
 func TestIndexCloseStopsRotation(t *testing.T) {

@@ -21,14 +21,13 @@ import (
 	"github.com/tikv/client-go/v2/txnkv/txnsnapshot"
 )
 
-// TiKVReadOptions selects optional regional stale reads. A positive delay and
-// labels must be supplied together. Primary fallback reads and mutations ignore both.
-// The delay is subtracted from the SDK's cached PD timestamp; cache age can
-// add staleness. Unavailable snapshots return an error and are never replaced
-// with older data.
-// Labels are SDK preferences; slow or unavailable replicas can cause reads of
-// the same historical timestamp to use a different store, including the leader.
+// TiKVReadOptions selects native Learner reads using store labels. No fixed
+// snapshot delay or application safe-ts probing is used. Local committed writes
+// preserve read-your-writes. Ordinary reads cannot switch to a Leader or a store
+// with different labels; native replica synchronization errors are propagated.
+// Explicit primary reads and mutations bypass regional selection.
 type TiKVReadOptions struct {
+	// Deprecated: ignored. Labels alone enable regional reads.
 	StaleReadDelay time.Duration
 	Labels         map[string]string
 }
@@ -40,20 +39,23 @@ type TiKVReadOptions struct {
 type TiKV struct {
 	client *tikv.KVStore
 	opts   *Options
-	read   TiKVReadOptions
 	labels []*metapb.StoreLabel
+	local  *tiKVLocalWrites
 }
 
 // NewTiKVWithClient borrows a transactional client without performing I/O.
-// Nil opts selects the default separator. Zero read options use strong reads.
+// Regional mode adds a context-scoped async routing decorator to the borrowed
+// client; other traffic is unchanged. Caller-installed transport decorators must
+// retain that client in their delegation chain. Nil opts selects the default
+// separator. Zero read options use strong reads.
 func NewTiKVWithClient(client *tikv.KVStore, read TiKVReadOptions, opts *Options) (*TiKV, error) {
 	if client == nil {
 		return nil, errors.New("kv: tikv client is nil")
 	}
-	if read.StaleReadDelay < 0 || read.StaleReadDelay > 24*time.Hour || read.StaleReadDelay%time.Millisecond != 0 || (read.StaleReadDelay > 0) != (len(read.Labels) > 0) {
-		return nil, errors.New("kv: tikv stale reads require a delay from 1ms to 24h and store labels")
+	store := &TiKV{client: client, opts: opts}
+	if len(read.Labels) > 0 {
+		store.local = new(tiKVLocalWrites)
 	}
-	store := &TiKV{client: client, opts: opts, read: TiKVReadOptions{StaleReadDelay: read.StaleReadDelay}}
 	for key, value := range read.Labels {
 		if key == "" || value == "" || strings.TrimSpace(key) != key || strings.TrimSpace(value) != value {
 			return nil, errors.New("kv: tikv read labels must not be empty")
@@ -61,6 +63,9 @@ func NewTiKVWithClient(client *tikv.KVStore, read TiKVReadOptions, opts *Options
 		store.labels = append(store.labels, &metapb.StoreLabel{Key: key, Value: value})
 	}
 	slices.SortFunc(store.labels, func(a, b *metapb.StoreLabel) int { return strings.Compare(a.Key, b.Key) })
+	if store.local != nil {
+		store.installAsyncReadPolicy()
+	}
 	return store, nil
 }
 
@@ -144,40 +149,44 @@ func (s *TiKV) timestamp(ctx context.Context) (uint64, error) {
 }
 
 func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
+	snapshot, _, err := s.snapshotWithTimestamp(ctx)
+	return snapshot, err
+}
+
+func (s *TiKV) snapshotWithTimestamp(ctx context.Context) (*txnsnapshot.KVSnapshot, uint64, error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	stale := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
+	regional := len(s.labels) > 0 && !requiresStrongReads(ctx)
 	var ts uint64
 	var err error
-	if stale {
-		// This SDK method reads only the oracle cache. Keeping the snapshot
-		// behind that timestamp also lets ValidateReadTS accept it without
-		// a synchronous PD request; cache age may add further staleness.
+	if regional {
+		floor := s.local.coveredTimestamp()
+		// Use the normal cached PD version without subtracting any delay.
+		// The Learner's native read protocol owns replication synchronization.
 		ts, err = s.client.GetOracle().GetLowResolutionTimestamp(ctx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
+		if err != nil || ts == 0 {
+			if ctx.Err() != nil {
+				return nil, 0, ctx.Err()
+			}
+			ts, err = s.timestamp(ctx)
+		}
 		if err == nil {
-			ts = oracle.GoTimeToTS(oracle.GetTimeFromTS(ts).Add(-s.read.StaleReadDelay))
+			ts = max(ts, floor)
 		}
 	} else {
 		ts, err = s.timestamp(ctx)
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	snapshot := s.client.GetSnapshot(ts)
-	if stale {
+	if regional {
 		snapshot.SetMatchStoreLabels(s.labels)
 		snapshot.SetReplicaRead(tikvkv.ReplicaReadLearner)
-		snapshot.SetIsStalenessReadOnly(true)
-		// client-go turns stale Get/BatchGet into mixed reads before applying
-		// this adjuster. Restore Learner preference; range scans use the type
-		// set above. Native selection still handles unavailable replicas.
-		snapshot.SetReplicaReadAdjuster(func(int) (tikv.StoreSelectorOption, tikvkv.ReplicaReadType) {
-			return nil, tikvkv.ReplicaReadLearner
-		})
 	}
 	// client-go scanners do not accept a context. Bound each scan RPC by the
 	// caller's remaining deadline and check cancellation at every iterator step.
@@ -186,26 +195,23 @@ func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
 		timeout = min(timeout, time.Until(deadline))
 	}
 	if timeout <= 0 {
-		return nil, context.DeadlineExceeded
+		return nil, 0, context.DeadlineExceeded
 	}
-	configureTiKVReadContext(ctx, snapshot, timeout, stale)
-	return snapshot, nil
+	s.configureTiKVReadContext(ctx, snapshot, timeout, regional)
+	return snapshot, ts, nil
 }
 
-func configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnapshot, timeout time.Duration, historical bool) {
+func (s *TiKV) configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnapshot, timeout time.Duration, regional bool) {
 	snapshot.SetKVReadTimeout(timeout)
 	snapshot.SetRPCInterceptor(interceptor.NewRPCInterceptor("gizclaw-context", func(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
 		return func(target string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			// Native scans retain the historical timestamp and Learner selection,
-			// but omit the stale-read flag used by Get/BatchGet. Mark a selected
-			// Learner scan here so it can serve its safe snapshot without ReadIndex.
-			// Other targets keep the SDK's normal retry/fallback request flags.
-			if historical && req.Type == tikvrpc.CmdScan && req.Peer.GetRole() == metapb.PeerRole_Learner {
-				req.StaleRead = true
-				req.ReplicaRead = false
+			if regional {
+				if err := s.guardRegionalRead(ctx, req); err != nil {
+					return nil, err
+				}
 			}
 			return next(target, req)
 		}
@@ -214,18 +220,17 @@ func configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnaps
 
 // Get reads one record using the configured consistency policy.
 func (s *TiKV) Get(ctx context.Context, key Key) ([]byte, error) {
-	snapshot, err := s.snapshot(ctx)
+	encoded := s.recordKey(key)
+	view, err := s.readView(ctx, [][]byte{encoded}, nil, false)
 	if err != nil {
 		return nil, tiKVError("get snapshot", err)
 	}
-	raw, err := snapshot.Get(ctx, s.recordKey(key))
-	if tikverr.IsErrNotFound(err) {
-		return nil, ErrNotFound
-	}
+	defer view.close()
+	raw, err := view.get(ctx, encoded)
 	if err != nil {
 		return nil, tiKVError("get", err)
 	}
-	value, err := decodeTiKVValue(raw.Value, time.Now())
+	value, err := decodeTiKVValue(raw, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -235,38 +240,48 @@ func (s *TiKV) Get(ctx context.Context, key Key) ([]byte, error) {
 	return bytes.Clone(value.payload), nil
 }
 
-// BatchGet reads all requested keys on one timestamp and snapshot. The SDK
+// BatchGet merges committed local writes with one native snapshot. The SDK
 // handles Region routing, request splitting and concurrency under ctx.
 func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
 	results := make([]GetResult, len(keys))
 	if len(keys) == 0 {
 		return results
 	}
-	snapshot, err := s.snapshot(ctx)
+	encoded := make([][]byte, len(keys))
+	for i, key := range keys {
+		encoded[i] = s.recordKey(key)
+	}
+	view, err := s.readView(ctx, encoded, nil, false)
 	if err != nil {
 		for i := range results {
 			results[i].Err = tiKVError("batch get snapshot", err)
 		}
 		return results
 	}
-	encoded := make([][]byte, len(keys))
-	for i, key := range keys {
-		encoded[i] = s.recordKey(key)
+	defer view.close()
+	values, readErr := view.snapshot.BatchGet(view.ctx, uniqueTiKVKeys(encoded))
+	readErr = view.readError(readErr)
+	if readErr == nil {
+		view.observed()
 	}
-	values, err := snapshot.BatchGet(ctx, uniqueTiKVKeys(encoded))
 	now := time.Now()
 	for i, key := range encoded {
 		result := &results[i]
+		if err := ctx.Err(); err != nil {
+			result.Err = err
+			continue
+		}
+		raw, ok := values[string(key)]
+		err := readErr
+		if err == nil && !ok {
+			err = ErrNotFound
+		}
+		data, err := view.resolve(key, raw.Value, err)
 		if err != nil {
 			result.Err = tiKVError("batch get", err)
 			continue
 		}
-		raw, ok := values[string(key)]
-		if !ok {
-			result.Err = ErrNotFound
-			continue
-		}
-		value, err := decodeTiKVValue(raw.Value, now)
+		value, err := decodeTiKVValue(data, now)
 		if err != nil {
 			result.Err = err
 		} else if value.kind != 0 {
@@ -301,10 +316,17 @@ func (s *TiKV) update(ctx context.Context, fn func(*transaction.KVTxn) (bool, er
 			_ = tx.Rollback()
 			return false, context.DeadlineExceeded
 		}
-		configureTiKVReadContext(ctx, tx.GetSnapshot(), timeout, false)
+		s.configureTiKVReadContext(ctx, tx.GetSnapshot(), timeout, false)
 		matched, err := fn(tx)
+		var local map[tiKVLocalKey][]byte
+		if err == nil && matched && s.local != nil {
+			local, err = s.bufferedLocalWrites(ctx, tx)
+		}
 		if err == nil && matched {
 			err = tx.Commit(ctx)
+			if err == nil && s.local != nil {
+				s.local.publish(tx.CommitTS(), local)
+			}
 		} else {
 			_ = tx.Rollback()
 		}
@@ -329,7 +351,7 @@ func tiKVError(operation string, err error) error {
 	if err == nil {
 		return nil
 	}
-	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalidDeadline) || errors.Is(err, ErrWrongType) || errors.Is(err, ErrMemberLimit) || errors.Is(err, ErrMigrationInProgress) || errors.Is(err, ErrMigrationConflict) || errors.Is(err, ErrMigrationUnsupported) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalidDeadline) || errors.Is(err, ErrWrongType) || errors.Is(err, ErrMemberLimit) || errors.Is(err, ErrMigrationInProgress) || errors.Is(err, ErrMigrationConflict) || errors.Is(err, ErrMigrationUnsupported) || errors.Is(err, errTiKVRegionalReadTarget) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	return &tiKVOperationError{operation: operation, err: err}

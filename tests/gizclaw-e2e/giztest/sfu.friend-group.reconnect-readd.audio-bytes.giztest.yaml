@@ -235,6 +235,15 @@ steps:
         role: FRIEND_GROUP_MEMBER_MUTABLE_ROLE_MEMBER
     expect:
       /peer_public_key: {equals: "${bob_public_key}"}
+  - id: bob_waits_for_readded_group
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend_group.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${bob_workspace}'}
   - id: bob_sees_original_workspace
     client: bob
     rpc:

@@ -5,12 +5,15 @@ package multiserver_test
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,56 +25,74 @@ import (
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/GizClaw/gizclaw-go/tests/testsupport/tikvfixture"
 	"github.com/pingcap/kvproto/pkg/metapb"
+	tikvkv "github.com/tikv/client-go/v2/kv"
+	"github.com/tikv/client-go/v2/oracle"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
+	"github.com/tikv/client-go/v2/tikvrpc/interceptor"
+	"github.com/tikv/client-go/v2/util/async"
 )
+
+type learnerReadObservation struct {
+	Address     string
+	RegionID    uint64
+	PeerID      uint64
+	StoreID     uint64
+	Role        metapb.PeerRole
+	ReplicaRead tikvkv.ReplicaReadType
+	Stale       bool
+	Type        tikvrpc.CmdType
+}
 
 type learnerReadClient struct {
 	tikv.Client
-	reads   chan string
-	peers   map[uint64]tikvfixture.RegionalPeer
-	address string
+	mu       sync.Mutex
+	attempts []learnerReadObservation
 }
 
 type learnerControlReadKey struct{}
 
 func (c *learnerReadClient) SendRequest(ctx context.Context, address string, req *tikvrpc.Request, timeout time.Duration) (*tikvrpc.Response, error) {
+	// The borrowed SDK client runs this interceptor after the production routing
+	// guard. Rejected selections are not data attempts; failed dispatches are.
+	ctx = interceptor.WithRPCInterceptor(ctx, interceptor.NewRPCInterceptor("lag-test-dispatch", func(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
+		return func(target string, request *tikvrpc.Request) (*tikvrpc.Response, error) {
+			c.recordAttempt(ctx, target, request)
+			return next(target, request)
+		}
+	}))
+	return c.Client.SendRequest(ctx, address, req, timeout)
+}
+
+func (c *learnerReadClient) SendRequestAsync(ctx context.Context, address string, req *tikvrpc.Request, callback async.Callback[*tikvrpc.Response]) {
+	// The production async guard runs before this wrapper. The SDK async API
+	// does not execute the synchronous interceptor chain.
+	c.recordAttempt(ctx, address, req)
+	c.Client.SendRequestAsync(ctx, address, req, callback)
+}
+
+func (c *learnerReadClient) recordAttempt(ctx context.Context, address string, req *tikvrpc.Request) {
 	control, _ := ctx.Value(learnerControlReadKey{}).(bool)
-	if control && (req.Type == tikvrpc.CmdGet || req.Type == tikvrpc.CmdScan) {
-		// SDK labels are preferences and may yield to a healthy center store.
-		// Pin only these diagnostic reads to PD's actual Learner. Application
-		// clients retain their production routing and never use this wrapper.
-		peer, found := c.peers[req.RegionId]
-		if !found || peer.ID == 0 || peer.StoreID == 0 {
-			return nil, fmt.Errorf("diagnostic Learner missing for Region %d", req.RegionId)
-		}
-		routed := *req
-		// client-go can clear this flag when falling back to a leader while
-		// retaining the historical timestamp. Keep controls on the Learner
-		// even across that retry, without changing the original SDK request.
-		routed.StaleRead = true
-		if err := tikvrpc.SetContext(&routed, nil, &metapb.Peer{Id: peer.ID, StoreId: peer.StoreID, Role: metapb.PeerRole_Learner}); err != nil {
-			return nil, err
-		}
-		req = &routed
-		address = c.address
+	if !control || (req.Type != tikvrpc.CmdGet && req.Type != tikvrpc.CmdBatchGet && req.Type != tikvrpc.CmdScan) {
+		return
 	}
-	resp, err := c.Client.SendRequest(ctx, address, req, timeout)
-	if err == nil && control && (req.Type == tikvrpc.CmdGet || req.Type == tikvrpc.CmdScan) {
-		region, decodeErr := resp.GetRegionError()
-		if region == nil && decodeErr == nil {
-			select {
-			case c.reads <- address:
-			default:
-				return nil, fmt.Errorf("Learner read observation capacity exceeded")
-			}
-		}
+	observation := learnerReadObservation{
+		Address: address, RegionID: req.RegionId, PeerID: req.Peer.GetId(), StoreID: req.Peer.GetStoreId(),
+		Role: req.Peer.GetRole(), ReplicaRead: req.ReplicaReadType, Stale: req.StaleRead, Type: req.Type,
 	}
-	return resp, err
+	c.mu.Lock()
+	c.attempts = append(c.attempts, observation)
+	c.mu.Unlock()
+}
+
+func (c *learnerReadClient) snapshot() []learnerReadObservation {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.attempts)
 }
 
 // TestTiKVLearnerLagThroughBothEdges runs production Server/Edge processes and
-// the public Go SDK while Raft replication into the readable Learner is frozen.
+// the public Go SDK around a real Raft outage of the native Learner reader.
 func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
 	defer cancel()
@@ -79,15 +100,18 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 	serverB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B"))
 	edgeA := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_EDGE_A"))
 	edgeB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_EDGE_B"))
-	pd := requiredEnv(t, "GIZCLAW_E2E_TIKV_PD")
-	topology, ready, err := tikvfixture.ReadTopology(ctx, pd)
+	topology, ready, err := tikvfixture.ReadTopology(ctx, requiredEnv(t, "GIZCLAW_E2E_TIKV_PD"))
 	if err != nil || !ready {
 		t.Fatalf("TiKV topology=%+v ready=%v err=%v", topology, ready, err)
 	}
 	shared := openSharedTiKV(t)
-	observer := &learnerReadClient{Client: shared.GetTiKVClient(), reads: make(chan string, 128), peers: topology.LearnerPeers, address: "tikv-replication-proxy:20160"}
+	observer := &learnerReadClient{Client: shared.GetTiKVClient()}
 	shared.SetTiKVClient(observer)
-	root, err := kv.NewTiKVWithClient(shared, kv.TiKVReadOptions{StaleReadDelay: time.Minute, Labels: map[string]string{"region": "local"}}, nil)
+	root, err := kv.NewTiKVWithClient(shared, kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer, err := kv.NewTiKVWithClient(shared, kv.TiKVReadOptions{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,6 +119,19 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 	assignments := kv.Prefixed(root, kv.Key{"peers", "routes"})
 	credentials := kv.Prefixed(root, kv.Key{"api-keys"})
 	regionalCtx := context.WithValue(ctx, learnerControlReadKey{}, true)
+	assertNativeAttempts := func(start int, required bool) {
+		t.Helper()
+		attempts := observer.snapshot()[start:]
+		if required && len(attempts) == 0 {
+			t.Fatal("native Learner read issued no data request")
+		}
+		for _, attempt := range attempts {
+			peer, found := topology.LearnerPeers[attempt.RegionID]
+			if !found || attempt.Address != "tikv-replication-proxy:20160" || attempt.PeerID != peer.ID || attempt.StoreID != peer.StoreID || attempt.Role != metapb.PeerRole_Learner || attempt.ReplicaRead != tikvkv.ReplicaReadLearner || attempt.Stale {
+				t.Fatalf("ordinary read attempted nonmatching/Leader/stale data request: %+v", attempt)
+			}
+		}
+	}
 
 	revokeKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -117,14 +154,10 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 	deletePeerB := connectAndServe(t, deleteKeyB, edgeB, serverB.PublicKey, "lag-delete-owner-b")
 	t.Cleanup(func() { _ = deletePeerB.Close() })
 	registerSocialPeer(t, ctx, deletePeerB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
-	// Dependent mutations begin only after their ordinary Peer inputs are visible.
-	// This setup does not turn authentication or availability into primary reads.
+	start := len(observer.snapshot())
 	waitLagRecords(t, regionalCtx, peerRecords,
 		kv.Key{"by-pubkey", revokeKey.Public.String()}, kv.Key{"by-pubkey", deleteKeyA.Public.String()}, kv.Key{"by-pubkey", deleteKeyB.Public.String()})
-	// Warmup is not evidence of reads during the later Raft freeze.
-	for len(observer.reads) > 0 {
-		<-observer.reads
-	}
+	assertNativeAttempts(start, true)
 	for _, client := range []*gizcli.Client{revokePeer, deletePeerA, deletePeerB} {
 		waitLagDevice(t, ctx, client)
 	}
@@ -154,27 +187,81 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 		assertLagSQLCount(t, states[i], "workspaces", key.Public, 1)
 	}
 	edges := []string{requiredEnv(t, "GIZCLAW_E2E_EDGE_A"), requiredEnv(t, "GIZCLAW_E2E_EDGE_B")}
-	// These sessions only seed the historical snapshot. Open fresh SDK sessions
-	// for the lag assertions after the wait, as real reconnecting devices do.
+	waitLagRecords(t, regionalCtx, credentials,
+		kv.Key{"secrets", revoked.APIKey}, kv.Key{"secrets", deletedCredentialA.APIKey}, kv.Key{"secrets", deletedCredentialB.APIKey})
+	for _, endpoint := range edges {
+		for _, secret := range []string{revoked.APIKey, deletedCredentialA.APIKey, deletedCredentialB.APIKey} {
+			waitLagHTTPReady(t, ctx, endpoint, secret)
+		}
+	}
+
+	// Native reads need replication synchronization. Establish ownership and
+	// roaming while healthy, rather than demanding admission during the outage.
+	t.Run("first-assignments-and-cross-edge-roaming", func(t *testing.T) {
+		for _, owner := range []struct {
+			first, second  int
+			server         giznet.PublicKey
+			state, foreign string
+		}{
+			{0, 1, serverA.PublicKey, states[0], states[1]},
+			{1, 0, serverB.PublicKey, states[1], states[0]},
+		} {
+			key, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatal(err)
+			}
+			transports := []gizcli.ServerInfoMetadata{edgeA, edgeB}
+			client := connectAndServe(t, key, transports[owner.first], owner.server, "lag-first-claim")
+			if err := client.Close(); err != nil {
+				t.Fatal(err)
+			}
+			waitLagRecords(t, regionalCtx, assignments, kv.Key{"by-peer", key.Public.String()})
+			client = connectAndServe(t, key, transports[owner.second], owner.server, "lag-first-claim-other-edge")
+			if err := client.Close(); err != nil {
+				t.Fatal(err)
+			}
+			assertPeerRunAbsent(t, owner.foreign, key.Public)
+			assertLagAssignment(t, ctx, kv.WithStrongReads(assignments), key.Public, owner.server)
+			seededKey, previous := deleteKeyA, deletePeerA
+			if owner.first == 1 {
+				seededKey, previous = deleteKeyB, deletePeerB
+			}
+			waitLagRecords(t, regionalCtx, assignments, kv.Key{"by-peer", seededKey.Public.String()})
+			if err := previous.Close(); err != nil {
+				t.Fatal(err)
+			}
+			client = connectAndServe(t, seededKey, transports[owner.second], owner.server, "lag-cross-edge-seeded-owner")
+			if err := client.SendBatteryTelemetry(47, false); err != nil {
+				t.Fatal(err)
+			}
+			waitPeerRunStatus(t, owner.state, seededKey.Public, 47)
+			assertPeerRunAbsent(t, owner.foreign, seededKey.Public)
+			if owner.first == 0 {
+				deletePeerA = client
+			} else {
+				deletePeerB = client
+			}
+		}
+	})
+	if t.Failed() {
+		return
+	}
+
+	// This fault tests the KV reader, not session survival during unavailable
+	// storage. Re-establish the same identities after native reads recover.
 	for _, client := range []*gizcli.Client{revokePeer, deletePeerA, deletePeerB} {
 		if err := client.Close(); err != nil {
 			t.Fatal(err)
 		}
 	}
-	t.Log("waiting for all seeded credentials to enter the regional historical snapshot")
-	waitLagRecords(t, regionalCtx, credentials,
-		kv.Key{"secrets", revoked.APIKey}, kv.Key{"secrets", deletedCredentialA.APIKey}, kv.Key{"secrets", deletedCredentialB.APIKey})
-	for len(observer.reads) > 0 {
-		<-observer.reads
+
+	// Separate backend instances keep this diagnostic reader free of the
+	// writer's local postimages, so its requests must reach the actual Learner.
+	probeKey := kv.Key{"e2e-native-lag", rand.Text()}
+	if err := writer.Set(ctx, probeKey, []byte("seed")); err != nil {
+		t.Fatal(err)
 	}
-	for _, endpoint := range edges {
-		waitLagHTTPReady(t, ctx, endpoint, revoked.APIKey)
-		waitLagHTTPReady(t, ctx, endpoint, deletedCredentialA.APIKey)
-		waitLagHTTPReady(t, ctx, endpoint, deletedCredentialB.APIKey)
-	}
-	revokePeer = connectAndServe(t, revokeKey, edgeB, serverB.PublicKey, "lag-revoke-reconnect")
-	deletePeerA = connectAndServe(t, deleteKeyA, edgeA, serverA.PublicKey, "lag-delete-reconnect-a")
-	deletePeerB = connectAndServe(t, deleteKeyB, edgeB, serverB.PublicKey, "lag-delete-reconnect-b")
+	waitLagValue(t, regionalCtx, root, probeKey, []byte("seed"))
 	proxy := requiredEnv(t, "GIZCLAW_E2E_TIKV_PROXY")
 	var gate struct {
 		Frozen  bool `json:"frozen"`
@@ -193,91 +280,87 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 	if !gate.Frozen || gate.Blocked == 0 {
 		t.Fatalf("Raft replication was not interrupted: %+v", gate)
 	}
-	frozenAt := time.Now()
-	beforeA, err := peerRecords.Get(regionalCtx, kv.Key{"by-pubkey", deleteKeyA.Public.String()})
+	if err := writer.Set(ctx, probeKey, []byte("committed-while-paused")); err != nil {
+		t.Fatalf("primary write during paused Raft: %v", err)
+	}
+	// Cover the acknowledged write with the real cached PD timestamp. This is
+	// a timestamp barrier, not a safe-ts probe or a fixed historical delay.
+	barrier, err := shared.GetOracle().GetTimestamp(ctx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
 	if err != nil {
 		t.Fatal(err)
 	}
-	beforeB, err := peerRecords.Get(regionalCtx, kv.Key{"by-pubkey", deleteKeyB.Public.String()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	beforeCredential, err := credentials.Get(regionalCtx, kv.Key{"secrets", revoked.APIKey})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Run("first-assignments-and-cross-edge-roaming", func(t *testing.T) {
-		for _, owner := range []struct {
-			first, second  int
-			server         giznet.PublicKey
-			state, foreign string
-		}{
-			{0, 1, serverA.PublicKey, requiredEnv(t, "GIZCLAW_E2E_SERVER_A_STATE"), requiredEnv(t, "GIZCLAW_E2E_SERVER_B_STATE")},
-			{1, 0, serverB.PublicKey, requiredEnv(t, "GIZCLAW_E2E_SERVER_B_STATE"), requiredEnv(t, "GIZCLAW_E2E_SERVER_A_STATE")},
-		} {
-			key, err := giznet.GenerateKeyPair()
-			if err != nil {
-				t.Fatal(err)
-			}
-			transports := []gizcli.ServerInfoMetadata{edgeA, edgeB}
-			client := connectAndServe(t, key, transports[owner.first], owner.server, "lag-first-claim")
-			if err := client.Close(); err != nil {
-				t.Fatal(err)
-			}
-			// The assignment is not in the frozen view. A readonly route miss is
-			// allowed; the other Server must not claim the existing foreign home.
-			connectMustFail(t, key, transports[owner.second], owner.server, "fresh assignment should remain unavailable in the frozen route view")
-			assertPeerRunAbsent(t, owner.foreign, key.Public)
-			if _, err := assignments.Get(regionalCtx, kv.Key{"by-peer", key.Public.String()}); err != kv.ErrNotFound {
-				t.Fatalf("frozen Learner unexpectedly has first assignment: %v", err)
-			}
-			stored, err := kv.WithStrongReads(assignments).Get(ctx, kv.Key{"by-peer", key.Public.String()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			var assignment apitypes.PeerAssignment
-			if err := json.Unmarshal(stored, &assignment); err != nil || assignment.ServerPublicKey != owner.server.String() || assignment.Version != 1 {
-				t.Fatalf("home assignment=%+v %v", assignment, err)
-			}
-			// Roaming uses a home that the historical view already knows. Newly
-			// committed homes above deliberately remain negative on the Learner.
-			seededKey, previous := deleteKeyA, deletePeerA
-			if owner.first == 1 {
-				seededKey, previous = deleteKeyB, deletePeerB
-			}
-			if err := previous.Close(); err != nil {
-				t.Fatal(err)
-			}
-			client = connectAndServe(t, seededKey, transports[owner.second], owner.server, "lag-cross-edge-seeded-owner")
-			if err := client.SendBatteryTelemetry(47, false); err != nil {
-				t.Fatal(err)
-			}
-			waitPeerRunStatus(t, owner.state, seededKey.Public, 47)
-			assertPeerRunAbsent(t, owner.foreign, seededKey.Public)
-			if owner.first == 0 {
-				deletePeerA = client
-			} else {
-				deletePeerB = client
+	waitLagCachedTimestamp(t, ctx, shared, barrier)
+	for i, control := range []struct {
+		store kv.Store
+		key   kv.Key
+	}{
+		{root, probeKey},
+		{peerRecords, kv.Key{"by-pubkey", deleteKeyA.Public.String()}},
+		{credentials, kv.Key{"secrets", revoked.APIKey}},
+	} {
+		start := len(observer.snapshot())
+		callCtx, stop := context.WithTimeout(regionalCtx, 2*time.Second)
+		_, err := control.store.Get(callCtx, control.key)
+		stop()
+		if err == nil || errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("paused native Learner returned success/absence for %v: %v", control.key, err)
+		}
+		// After the first error, the SDK may reject an unhealthy Learner before
+		// dispatch. No later call may send data to the Leader instead.
+		assertNativeAttempts(start, i == 0)
+		start = len(observer.snapshot())
+		value, err := control.store.Get(kv.WithPrimaryReads(regionalCtx), control.key)
+		if err != nil {
+			t.Fatalf("explicit primary control during paused Raft: %v", err)
+		}
+		if i == 0 && string(value) != "committed-while-paused" {
+			t.Fatalf("primary lost acknowledged write: %q", value)
+		}
+		attempts := observer.snapshot()[start:]
+		if len(attempts) == 0 {
+			t.Fatal("explicit primary control issued no data request")
+		}
+		for _, attempt := range attempts {
+			if attempt.StoreID != topology.CenterStoreID || attempt.Role == metapb.PeerRole_Learner || attempt.Stale || attempt.ReplicaRead != tikvkv.ReplicaReadLeader {
+				t.Fatalf("explicit primary control escaped center voter: %+v", attempt)
 			}
 		}
-	})
+	}
+	if err := tikvfixture.HTTP(ctx, http.MethodGet, proxy+"/status", nil, &gate); err != nil || !gate.Frozen || gate.Blocked == 0 {
+		t.Fatalf("Raft fault did not persist: %+v %v", gate, err)
+	}
+	t.Logf("real Raft outage verified: blocked=%d; native Learner errors, no Leader data fallback, primary reads/writes healthy", gate.Blocked)
+	if err := tikvfixture.HTTP(ctx, http.MethodPost, proxy+"/resume", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	start = len(observer.snapshot())
+	waitLagValue(t, regionalCtx, root, probeKey, []byte("committed-while-paused"))
+	assertNativeAttempts(start, true)
+	for _, endpoint := range edges {
+		for _, secret := range []string{revoked.APIKey, deletedCredentialA.APIKey, deletedCredentialB.APIKey} {
+			waitLagHTTPReady(t, ctx, endpoint, secret)
+		}
+	}
+	revokePeer = connectAndServe(t, revokeKey, edgeB, serverB.PublicKey, "lag-revoke-owner-after-recovery")
+	deletePeerA = connectAndServe(t, deleteKeyA, edgeA, serverA.PublicKey, "lag-delete-owner-a-after-recovery")
+	deletePeerB = connectAndServe(t, deleteKeyB, edgeB, serverB.PublicKey, "lag-delete-owner-b-after-recovery")
+	for _, client := range []*gizcli.Client{revokePeer, deletePeerA, deletePeerB} {
+		waitLagDevice(t, ctx, client)
+	}
+
 	t.Run("api-key-revocation", func(t *testing.T) {
 		if _, err := revokePeer.RevokeAPIKey(ctx, "lag-revoke", rpcapi.APIKeyRevokeRequest{Name: revoked.Value.Name}); err != nil {
 			t.Fatal(err)
 		}
-		for _, endpoint := range edges {
-			assertLagHTTPStatus(t, ctx, endpoint, revoked.APIKey, http.StatusOK)
-		}
 		if _, err := credentials.Get(kv.WithPrimaryReads(ctx), kv.Key{"secrets", revoked.APIKey}); !errors.Is(err, kv.ErrNotFound) {
 			t.Fatalf("primary retained revoked credential: %v", err)
 		}
-		if _, err := revokePeer.Ping(ctx, "lag-revoke-control"); err != nil {
-			t.Fatalf("owner transport was lost: %v", err)
+		waitLagAbsent(t, regionalCtx, credentials, kv.Key{"secrets", revoked.APIKey})
+		for _, endpoint := range edges {
+			waitLagHTTPStatus(t, ctx, endpoint, revoked.APIKey, http.StatusUnauthorized)
 		}
-		value, err := credentials.Get(regionalCtx, kv.Key{"secrets", revoked.APIKey})
-		if err != nil || !bytes.Equal(value, beforeCredential) {
-			t.Fatalf("revocation stale control changed: %v", err)
+		if _, err := revokePeer.Ping(ctx, "lag-revoke-control"); err != nil {
+			t.Fatalf("key revocation lost owner transport: %v", err)
 		}
 	})
 	t.Run("peer-deletion-on-both-home-servers", func(t *testing.T) {
@@ -285,104 +368,57 @@ func TestTiKVLearnerLagThroughBothEdges(t *testing.T) {
 			if _, err := client.DeletePeer(ctx, fmt.Sprintf("lag-peer-delete-%d", i), rpcapi.ServerPeerDeleteRequest{}); err != nil {
 				t.Fatalf("SDK Peer delete: %v", err)
 			}
-		}
-		for _, key := range []*giznet.KeyPair{deleteKeyA, deleteKeyB} {
+			key := []*giznet.KeyPair{deleteKeyA, deleteKeyB}[i]
+			// The permanent tombstone is part of the request commit, independent
+			// of background discovery or completion of hourly cleanup passes.
+			assertLagTombstone(t, kv.WithPrimaryReads(ctx), peerRecords, key.Public)
 			pending, err := pendingdeletion.HasLocator(kv.WithPrimaryReads(ctx), peerRecords, pendingdeletion.KindPeer, key.Public.String())
 			if err != nil || !pending {
-				t.Fatalf("acknowledged deletion has no primary fence: pending=%v err=%v", pending, err)
+				t.Fatalf("acknowledged deletion has no durable cleanup request: pending=%v err=%v", pending, err)
 			}
-		}
-		// Discovery also uses the Learner: newly committed tasks need not be
-		// visible during this freeze. Keep the exact old-state controls here,
-		// then require complete cleanup and ingress rejection after convergence.
-		for i, key := range []*giznet.KeyPair{deleteKeyA, deleteKeyB} {
-			old := beforeA
-			if i == 1 {
-				old = beforeB
-			}
-			value, err := peerRecords.Get(regionalCtx, kv.Key{"by-pubkey", key.Public.String()})
-			if err != nil || !bytes.Equal(value, old) {
-				t.Fatalf("deleted Peer stale control changed: %v", err)
-			}
-		}
-	})
-	if time.Since(frozenAt) > 50*time.Second {
-		t.Fatal("SDK lag assertions exceeded the historical snapshot window")
-	}
-	observations := 0
-	for len(observer.reads) > 0 {
-		address := <-observer.reads
-		observations++
-		if address != "tikv-replication-proxy:20160" {
-			t.Fatalf("stale control escaped the regional Learner: %s", address)
-		}
-	}
-	if observations < 8 {
-		t.Fatalf("missing regional read proof: %d", observations)
-	}
-	if err := tikvfixture.HTTP(ctx, http.MethodGet, proxy+"/status", nil, &gate); err != nil || !gate.Frozen {
-		t.Fatalf("replication resumed during lag assertions: %+v %v", gate, err)
-	}
-	t.Logf("frozen SDK/Edge/Server chain verified: both home assignments, revoked key still authenticates through both Edges, both deletion fences committed; %d regional stale controls", observations)
-	if err := tikvfixture.HTTP(ctx, http.MethodPost, proxy+"/resume", nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	// Server snapshots use a one-minute history. Wait beyond all writes made
-	// during the freeze, then bound Learner catchup before checking ingress.
-	timer := time.NewTimer(61 * time.Second)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	case <-timer.C:
-	}
-	t.Run("post-resume-convergence", func(t *testing.T) {
-		for i, key := range []*giznet.KeyPair{deleteKeyA, deleteKeyB} {
-			waitLagTombstone(t, ctx, kv.WithStrongReads(peerRecords), key.Public)
-			assertLagSQLCount(t, states[i], "runtime_profile_owners", key.Public, 0)
-			assertLagSQLCount(t, states[i], "workspaces", key.Public, 0)
-		}
-		// Discovery must first see the deletion tasks. Their cleanup writes
-		// enter the historical view one window after those tasks were handled.
-		timer.Reset(61 * time.Second)
-		select {
-		case <-ctx.Done():
-			t.Fatal(ctx.Err())
-		case <-timer.C:
 		}
 		for i, key := range []*giznet.KeyPair{deleteKeyA, deleteKeyB} {
-			waitLagTombstone(t, regionalCtx, peerRecords, key.Public)
-			data, err := assignments.Get(regionalCtx, kv.Key{"by-peer", key.Public.String()})
-			if err != nil {
-				t.Fatal(err)
-			}
-			var assignment apitypes.PeerAssignment
+			waitLagValue(t, regionalCtx, peerRecords, kv.Key{"by-pubkey", key.Public.String()}, []byte(`{"version":1,"state":"deleted"}`))
 			home := serverA.PublicKey
 			if i == 1 {
 				home = serverB.PublicKey
 			}
-			if err := json.Unmarshal(data, &assignment); err != nil || assignment.PeerPublicKey != key.Public.String() || assignment.ServerPublicKey != home.String() || assignment.Version != 1 {
-				t.Fatalf("retirement changed retained home assignment: %+v err=%v", assignment, err)
-			}
+			assertLagAssignment(t, regionalCtx, assignments, key.Public, home)
+			assertLagAssignment(t, ctx, kv.WithStrongReads(assignments), key.Public, home)
 		}
-		for _, credential := range []string{revoked.APIKey, deletedCredentialA.APIKey, deletedCredentialB.APIKey} {
-			if _, err := credentials.Get(regionalCtx, kv.Key{"secrets", credential}); !errors.Is(err, kv.ErrNotFound) {
-				t.Fatalf("Learner retained revoked or retired credential: %v", err)
-			}
+		for _, secret := range []string{deletedCredentialA.APIKey, deletedCredentialB.APIKey} {
 			for _, endpoint := range edges {
-				assertLagHTTPStatus(t, ctx, endpoint, credential, http.StatusUnauthorized)
+				waitLagHTTPStatus(t, ctx, endpoint, secret, http.StatusUnauthorized)
 			}
 		}
 		for i, key := range []*giznet.KeyPair{deleteKeyA, deleteKeyB} {
-			authority := serverA.PublicKey
+			home := serverA.PublicKey
 			if i == 1 {
-				authority = serverB.PublicKey
+				home = serverB.PublicKey
 			}
 			for _, transport := range []gizcli.ServerInfoMetadata{edgeA, edgeB} {
-				if err := ctx.Err(); err != nil {
-					t.Fatal(err)
-				}
-				connectMustFail(t, key, transport, authority, "converged deleted Peer reconnected through an Edge")
+				connectMustFail(t, key, transport, home, "deleted Peer reconnected through an Edge")
+			}
+			assertLagTombstone(t, kv.WithPrimaryReads(ctx), peerRecords, key.Public)
+			assertLagAssignment(t, ctx, kv.WithStrongReads(assignments), key.Public, home)
+			pending, err := pendingdeletion.HasLocator(kv.WithPrimaryReads(ctx), peerRecords, pendingdeletion.KindPeer, key.Public.String())
+			if err != nil || !pending {
+				t.Fatalf("Peer cleanup request disappeared before hourly rescans: pending=%v err=%v", pending, err)
+			}
+			// At least 32 hourly executions retain this binding. Workspace and
+			// credential cleanup can start earlier; task completion is not expected.
+			assertLagSQLCount(t, states[i], "runtime_profile_owners", key.Public, 1)
+			assertPeerRunAbsent(t, states[1-i], key.Public)
+		}
+		// A healthy owner must still connect through each Edge after the
+		// deleted identities fail, so a transport outage cannot pass this gate.
+		if err := revokePeer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		for _, transport := range []gizcli.ServerInfoMetadata{edgeA, edgeB} {
+			client := connectAndServe(t, revokeKey, transport, serverB.PublicKey, "lag-live-owner-after-retirement")
+			if err := client.Close(); err != nil {
+				t.Fatal(err)
 			}
 		}
 	})
@@ -403,38 +439,30 @@ func lagHTTPStatus(ctx context.Context, endpoint, secret string) (int, error) {
 	return resp.StatusCode, nil
 }
 
-func assertLagHTTPStatus(t *testing.T, ctx context.Context, endpoint, secret string, want int) {
-	t.Helper()
-	status, err := lagHTTPStatus(ctx, endpoint, secret)
-	if err != nil || status != want {
-		t.Fatalf("Edge %s credential status=%d, want %d: %v", endpoint, status, want, err)
-	}
-}
-
 func waitLagHTTPReady(t *testing.T, ctx context.Context, endpoint, secret string) {
 	t.Helper()
-	readyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	waitLagHTTPStatus(t, ctx, endpoint, secret, http.StatusOK)
+}
+
+func waitLagHTTPStatus(t *testing.T, ctx context.Context, endpoint, secret string, want int) {
+	t.Helper()
+	readyCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		status, err := lagHTTPStatus(readyCtx, endpoint, secret)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if status == http.StatusOK {
+		if err == nil && status == want {
 			return
-		}
-		if status != http.StatusUnauthorized {
-			t.Fatalf("unexpected seed HTTP status: %d", status)
 		}
 		select {
 		case <-readyCtx.Done():
-			t.Fatal("seed credential did not enter the Server's historical view")
+			t.Fatalf("Edge %s credential status=%d, want %d: last error=%v, wait=%v", endpoint, status, want, err, readyCtx.Err())
 		case <-ticker.C:
 		}
 	}
 }
+
 func waitLagDevice(t *testing.T, ctx context.Context, client *gizcli.Client) {
 	t.Helper()
 	readyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -447,7 +475,7 @@ func waitLagDevice(t *testing.T, ctx context.Context, client *gizcli.Client) {
 		}
 		select {
 		case <-readyCtx.Done():
-			t.Fatal("device Peer input did not enter its Server's historical view")
+			t.Fatal("device Peer input did not become readable on its Server")
 		case <-ticker.C:
 		}
 	}
@@ -474,33 +502,84 @@ func waitLagRecords(t *testing.T, ctx context.Context, store kv.Store, keys ...k
 		}
 		select {
 		case <-readyCtx.Done():
-			t.Fatal("seed records did not enter the historical view")
+			t.Fatal("seed records did not become readable on the Learner")
 		case <-ticker.C:
 		}
 	}
 }
 
-func waitLagTombstone(t *testing.T, ctx context.Context, store kv.Store, key giznet.PublicKey) {
+func waitLagValue(t *testing.T, ctx context.Context, store kv.Store, key kv.Key, want []byte) {
 	t.Helper()
-	deadline := time.NewTimer(45 * time.Second)
-	defer deadline.Stop()
-	ticker := time.NewTicker(50 * time.Millisecond)
+	waitLagRead(t, ctx, store, key, func(value []byte, err error) bool {
+		return err == nil && bytes.Equal(value, want)
+	})
+}
+
+func waitLagAbsent(t *testing.T, ctx context.Context, store kv.Store, key kv.Key) {
+	t.Helper()
+	waitLagRead(t, ctx, store, key, func(_ []byte, err error) bool {
+		return errors.Is(err, kv.ErrNotFound)
+	})
+}
+
+func waitLagRead(t *testing.T, ctx context.Context, store kv.Store, key kv.Key, ready func([]byte, error) bool) {
+	t.Helper()
+	readyCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		value, err := store.Get(ctx, kv.Key{"by-pubkey", key.String()})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if bytes.Equal(value, []byte(`{"version":1,"state":"deleted"}`)) {
+		value, err := store.Get(readyCtx, key)
+		if ready(value, err) {
 			return
 		}
 		select {
-		case <-ctx.Done():
-			t.Fatal(ctx.Err())
-		case <-deadline.C:
-			t.Fatal("authoritative Peer deletion did not finalize")
+		case <-readyCtx.Done():
+			t.Fatalf("Learner record %v did not converge: value=%q err=%v wait=%v", key, value, err, readyCtx.Err())
 		case <-ticker.C:
 		}
+	}
+}
+
+func waitLagCachedTimestamp(t *testing.T, ctx context.Context, client *tikv.KVStore, barrier uint64) {
+	t.Helper()
+	readyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		cached, err := client.GetOracle().GetLowResolutionTimestamp(readyCtx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cached >= barrier {
+			return
+		}
+		select {
+		case <-readyCtx.Done():
+			t.Fatalf("cached PD timestamp did not cover acknowledged write: cached=%d barrier=%d: %v", cached, barrier, readyCtx.Err())
+		case <-ticker.C:
+		}
+	}
+}
+
+func assertLagTombstone(t *testing.T, ctx context.Context, store kv.Store, key giznet.PublicKey) {
+	t.Helper()
+	value, err := store.Get(ctx, kv.Key{"by-pubkey", key.String()})
+	if err != nil || !bytes.Equal(value, []byte(`{"version":1,"state":"deleted"}`)) {
+		t.Fatalf("acknowledged Peer deletion has no permanent tombstone: value=%q err=%v", value, err)
+	}
+}
+
+func assertLagAssignment(t *testing.T, ctx context.Context, store kv.Store, key, home giznet.PublicKey) {
+	t.Helper()
+	data, err := store.Get(ctx, kv.Key{"by-peer", key.String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var assignment apitypes.PeerAssignment
+	if err := json.Unmarshal(data, &assignment); err != nil || assignment.PeerPublicKey != key.String() || assignment.ServerPublicKey != home.String() || assignment.Version != 1 {
+		t.Fatalf("fixed home assignment changed: %+v err=%v", assignment, err)
 	}
 }
 

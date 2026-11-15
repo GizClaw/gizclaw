@@ -41,6 +41,7 @@ type UsageGate struct {
 	center          chan struct{}
 	services        atomic.Pointer[UsageServices]
 	readClock       atomic.Pointer[usageReadClock]
+	regionalReadTS  atomic.Uint64
 	blockedStacks   []usageBlockedFrame
 	blockedRequests []usageBlockedRequest
 	ruleHistory     []map[string]UsageObservation
@@ -344,7 +345,7 @@ func (g *UsageGate) control(w http.ResponseWriter, r *http.Request) {
 		}
 		g.mu.Unlock()
 		if clock := g.readClock.Load(); clock != nil {
-			clock.frozen.Store(0)
+			_, _ = clock.setFrozen(ctx, false)
 		}
 		_, _ = g.pauseAutomaticRecovery(ctx, false)
 		usageJSON(w, map[string]bool{"diagnostic": true, "reset": true})
@@ -551,7 +552,7 @@ func (g *UsageGate) SendRequest(ctx context.Context, address string, req *tikvrp
 		return nil, err
 	}
 	response, err := g.Client.SendRequest(ctx, address, req, timeout)
-	usageRecordRead(ctx, req, response, err)
+	g.recordNativeRead(ctx, req, response, err)
 	usageComplete(rules, response, err)
 	if err == nil {
 		if err := g.boundary(ctx, rules, "response"); err != nil {
@@ -578,7 +579,7 @@ func (g *UsageGate) SendRequestAsync(ctx context.Context, address string, req *t
 	}
 	callback.Inject(func(response *tikvrpc.Response, err error) (*tikvrpc.Response, error) {
 		defer cancel()
-		usageRecordRead(ctx, req, response, err)
+		g.recordNativeRead(ctx, req, response, err)
 		usageComplete(rules, response, err)
 		if err == nil {
 			if err := g.boundary(ctx, rules, "response"); err != nil {

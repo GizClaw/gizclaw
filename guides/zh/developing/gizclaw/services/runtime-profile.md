@@ -78,6 +78,15 @@ Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。Runti
 
 这个 binding alias 表示 Workflow 标量 `memory` 字段选择的 named physical source。在相同 Workspace、driver 与 physical binding 下，修改 extraction policy、Graph Recall/Observe policy、prompt 或 `top_k` 不会创建新的 canonical data namespace；修改 driver 或 connection 可以切换到另一个数据源，但不会自动迁移或删除旧数据。删除 Workspace 时只清除它在当前 binding 中的数据，见 [Memory Store](/zh/developing/stores/memory#memorylayout、runtimeprofile-与-workflow)。
 
+## MCP servers
+
+`resources.mcp_servers` holds private Streamable HTTP connections. Each Eino
+Workflow binding explicitly selects resource access and remote tool names through
+`mcp`. The Server shares connections and local resource snapshots across Workflow
+generations using the same binding, polls for updates, and retains the previous
+version on refresh failure. Configuration, authorization, lifecycle, and examples
+are described in [Runtime MCP](./runtime/mcp).
+
 ## app_config
 
 `app_config` 随同一条 RuntimeProfile 记录保存在 `app_config_json` 列中，创建、更新和所有读取路径都保留原始字符串值。省略配置保存为 JSON `null`，显式空 map 保存为 `{}`；两者都表示没有下发配置，更新时会清除旧值。初始化为缺少该列的已有表补列，保留其他字段和版本；原先未保存的配置需由管理员重新提交。

@@ -61,11 +61,15 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	return CreateOrGetGuarded(ctx, store, record, nil)
 }
 
-// CreateOrGetGuarded creates deletion work only while the caller's domain
-// conditions hold. Conditions use store's logical namespace and are evaluated
-// atomically with locator, marker and task creation. A rejected domain condition
-// with no existing deletion returns ErrConflict without creating work.
-func CreateOrGetGuarded(ctx context.Context, store kv.Store, record Record, conditions []kv.Condition) (Record, bool, error) {
+// CreateOrGetGuarded creates deletion work and writes domainEntries only while
+// the caller's domain conditions hold. Conditions and domainEntries use store's
+// logical namespace. Domain entries must have nonempty keys and segments, use
+// distinct keys, and stay outside the pending-deletion namespace. They are
+// committed atomically with the locator, marker, task and task indexes.
+// A rejected condition with no existing deletion returns ErrConflict without
+// writing anything. If a deletion already exists for the locator, its record is
+// returned with created=false and none of domainEntries are written.
+func CreateOrGetGuarded(ctx context.Context, store kv.Store, record Record, conditions []kv.Condition, domainEntries ...kv.Entry) (Record, bool, error) {
 	if store == nil {
 		return Record{}, false, errors.New("pending deletion: KV store not configured")
 	}
@@ -73,6 +77,18 @@ func CreateOrGetGuarded(ctx context.Context, store kv.Store, record Record, cond
 	if err != nil {
 		return Record{}, false, err
 	}
+	seen := make(map[string]struct{}, len(domainEntries))
+	for _, entry := range domainEntries {
+		if err := validateFinalizeDomainKey(entry.Key); err != nil {
+			return Record{}, false, err
+		}
+		identity := kvKeyIdentity(entry.Key)
+		if _, exists := seen[identity]; exists {
+			return Record{}, false, fmt.Errorf("pending deletion: duplicate KV creation key %q", entry.Key.String())
+		}
+		seen[identity] = struct{}{}
+	}
+	entries = append(entries, domainEntries...)
 	fingerprint, err := Fingerprint(record)
 	if err != nil {
 		return Record{}, false, err
@@ -118,6 +134,59 @@ func CreateOrGetGuarded(ctx context.Context, store kv.Store, record Record, cond
 		return Record{}, false, err
 	}
 	return existing, false, nil
+}
+
+// MutateRecordGuarded updates domain records only while the exact immutable
+// deletion record and its locator still exist. It preserves all task state,
+// including an active lease, and never recreates completed deletion work.
+func MutateRecordGuarded(ctx context.Context, store kv.Store, record Record, conditions []kv.Condition, entries ...kv.Entry) (bool, error) {
+	if store == nil {
+		return false, errors.New("pending deletion: KV store not configured")
+	}
+	fingerprint, err := Fingerprint(record)
+	if err != nil {
+		return false, err
+	}
+	seen := make(map[string]struct{}, len(entries))
+	for _, entry := range entries {
+		if err := validateFinalizeDomainKey(entry.Key); err != nil {
+			return false, err
+		}
+		identity := kvKeyIdentity(entry.Key)
+		if _, exists := seen[identity]; exists {
+			return false, fmt.Errorf("pending deletion: duplicate guarded domain key %q", entry.Key.String())
+		}
+		seen[identity] = struct{}{}
+	}
+	for _, condition := range conditions {
+		if err := validateFinalizeDomainKey(condition.Key); err != nil {
+			return false, err
+		}
+	}
+	data, err := store.Get(ctx, byIDKey(record.DeletionID))
+	if errors.Is(err, kv.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var current Record
+	if err := json.Unmarshal(data, &current); err != nil {
+		return false, err
+	}
+	currentFingerprint, err := Fingerprint(current)
+	if err != nil {
+		return false, err
+	}
+	if fingerprint != currentFingerprint {
+		return false, nil
+	}
+	guards := append([]kv.Condition(nil), conditions...)
+	guards = append(guards,
+		kv.Condition{Key: byIDKey(record.DeletionID), Expected: data},
+		kv.Condition{Key: byLocatorKey(record.Kind, record.ResourceID), Expected: []byte(record.DeletionID)},
+	)
+	return store.ApplyMutation(ctx, kv.Mutation{Conditions: guards, Entries: entries})
 }
 
 // GetByLocator loads the PendingDeletion record for one logical resource.
