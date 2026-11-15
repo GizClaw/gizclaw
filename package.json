@@ -16,7 +16,7 @@
     "oxlint": "1.82.0",
     "prettier": "3.9.6",
     "typescript": "6.0.3",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   },
   "scripts": {
     "quality:typescript": "tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && npm run build --workspace @gizclaw/gizclaw && tsc --noEmit -p sdk/js/gizclaw-control/tsconfig.json && npm run build --workspace @gizclaw/gizclaw-control && tsc --noEmit -p tests/clients/js/tsconfig.json && tsc --noEmit -p web/assistant/tsconfig.json",
