@@ -13,10 +13,17 @@ import (
 
 func main() {
 	address := flag.String("pd", "tikv-pd:2379", "isolated E2E PD address")
+	readRouting := flag.Bool("read-routing", false, "verify two distinct regional Learners")
 	flag.Parse()
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	topology, err := tikvfixture.Configure(ctx, *address)
+	var topology any
+	var err error
+	if *readRouting {
+		topology, err = tikvfixture.ConfigureReadRouting(ctx, *address)
+	} else {
+		topology, err = tikvfixture.Configure(ctx, *address)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}

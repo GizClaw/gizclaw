@@ -517,6 +517,27 @@ The credential-free multi-Server Docker gate is:
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
+Run the fixed two-label Learner routing lane separately:
+
+```sh
+bash tests/gizclaw-e2e/run_tikv_read_routing_tests.sh
+```
+
+It extends the same isolated topology with a second healthy Learner and gives
+Server A and B distinct `read_labels`. PD verifies a center voter and both
+labelled Learners in every Region. Independent KV clients first wait for point
+read visibility, then check Get/BatchGet and twelve collection scans per label;
+an unmatched-label control must still fail the strict read guard. The existing
+friend audio, group delete/recreate audio and members-in-room Giztest documents
+then run unchanged, with bounded assertion-only visibility waits and single
+mutation calls. A test-build overlay records selected peer/store labels at the
+production guard without changing routing or responses. Reports, topology,
+source/binary hashes, route observations and process health remain under the
+run's ignored `testdata/multi-server/<project>/`; cleanup removes only its
+Compose resources. No provider credentials or host ports are used. This manual
+lane complements SDK tests for reverse scans, cold caches and retry selection;
+it does not qualify WAN behavior or production capacity.
+
 Run the residual-lock regression for concurrent creation of the same Peer separately:
 
 ```sh

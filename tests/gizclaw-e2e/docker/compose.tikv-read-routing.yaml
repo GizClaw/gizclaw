@@ -1,0 +1,18 @@
+# The read-routing lane adds a second healthy Learner. No host ports are exposed.
+services:
+  tikv-learner-remote:
+    extends: {file: compose.tikv.yaml, service: tikv-learner}
+    command: [--config=/etc/tikv-test.toml, --addr=0.0.0.0:20160, --advertise-addr=tikv-learner-remote:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=tikv-pd:2379, --labels=region=remote]
+  tikv-init:
+    entrypoint: [/usr/local/bin/tikv-fixture, -pd, "tikv-pd:2379", -read-routing]
+    depends_on:
+      tikv-learner-remote: {condition: service_started}
+  tests:
+    environment:
+      GIZCLAW_E2E_TIKV_READ_ROUTING: "1"
+  server-a:
+    environment:
+      GIZCLAW_E2E_TIKV_READ_REGION: local
+  server-b:
+    environment:
+      GIZCLAW_E2E_TIKV_READ_REGION: remote
