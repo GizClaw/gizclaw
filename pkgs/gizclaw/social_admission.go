@@ -2,8 +2,10 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 )
 
 // peerMutationAvailability binds a mutation-only availability check. Historical
@@ -14,6 +16,13 @@ func peerMutationAvailability(peers *peer.Server) func(context.Context, string) 
 		if err != nil {
 			return err
 		}
-		return peers.EnsureAvailableForMutation(ctx, key)
+		err = peers.EnsureAvailableForMutation(ctx, key)
+		if errors.Is(err, peer.ErrPeerPendingDeletion) || errors.Is(err, peer.ErrPeerDeleted) {
+			// Social creation may already own a SQL Workspace when availability
+			// changes. Classify retirement so its existing compensation runs,
+			// while preserving the Peer error for RPC and HTTP projections.
+			return errors.Join(err, ownership.ErrOwnerRetired)
+		}
+		return err
 	}
 }

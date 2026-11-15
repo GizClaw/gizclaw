@@ -559,7 +559,7 @@ func (g *Gateway) handleClient(client giznet.Conn, admission *gatewayAdmission) 
 		if entry == nil {
 			break
 		}
-		logical, sessionID, retry := g.openLogicalSession(establishCtx, client, admission, entry)
+		logical, sessionID, retry, redirect := g.openLogicalSession(establishCtx, client, admission, entry)
 		if logical != nil {
 			if attempt > 0 {
 				slog.InfoContext(g.ctx, "gateway logical session alternate succeeded",
@@ -574,7 +574,14 @@ func (g *Gateway) handleClient(client giznet.Conn, admission *gatewayAdmission) 
 			break
 		}
 		admission.releasePool()
-		alternate, release, err := g.acquirePeerUpstream(establishCtx, client.PublicKey())
+		var alternate *gatewayUpstream
+		var release func()
+		var err error
+		if redirect != nil {
+			alternate, release, err = g.acquireRedirectUpstream(establishCtx, entry, redirect.ServerPublicKey)
+		} else {
+			alternate, release, err = g.acquirePeerUpstream(establishCtx, client.PublicKey())
+		}
 		if err != nil {
 			break
 		}
@@ -593,13 +600,13 @@ func (g *Gateway) openLogicalSession(
 	client giznet.Conn,
 	admission *gatewayAdmission,
 	entry *gatewayUpstream,
-) (*giztunnel.Conn, string, bool) {
+) (*giztunnel.Conn, string, bool, *giztunnel.SessionRedirectError) {
 	if entry == nil || entry.router == nil {
-		return nil, "", false
+		return nil, "", false, nil
 	}
 	sessionID, err := giztunnel.NewSessionID()
 	if err != nil {
-		return nil, "", false
+		return nil, "", false, nil
 	}
 	ctx = gizlog.WithSessionID(gizlog.WithPeerPublicKey(ctx, client.PublicKey().String()), sessionID.String())
 	handshakeCtx, cancelHandshake, completeHandshakeBudget := boundedAttemptContext(
@@ -626,6 +633,18 @@ func (g *Gateway) openLogicalSession(
 	)
 	cancelHandshake()
 	if err != nil {
+		if redirect, ok := errors.AsType[*giztunnel.SessionRedirectError](err); ok {
+			labels := []gizmetrics.Label{{Name: "result", Value: "redirected"}, {Name: "reason", Value: "peer_home"}}
+			gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
+			recordEdgeDuration(g.ctx, metricEdgeSessionEstablishDuration, handshakeStarted, labels...)
+			slog.InfoContext(ctx, peerStreamLifecycleMessage,
+				"component", "edge_gateway", "stage", "session_redirected",
+				"result", "redirected", "reason", "peer_home",
+				"tunnel_session_id", sessionID.String(), "peer_public_key", client.PublicKey().String(),
+				"entry_id", entry.id, "duration_ms", time.Since(handshakeStarted).Milliseconds(),
+			)
+			return nil, sessionID.String(), true, redirect
+		}
 		reason := preSessionHandshakeFailureCategory(err, completeHandshakeBudget)
 		result := gatewaySessionEstablishmentResult(err, completeHandshakeBudget)
 		labels := []gizmetrics.Label{{Name: "result", Value: result}, {Name: "reason", Value: reason}}
@@ -646,7 +665,7 @@ func (g *Gateway) openLogicalSession(
 			"peer_public_key", client.PublicKey().String(),
 			"entry_id", entry.id,
 		)
-		return nil, sessionID.String(), g.classifySessionHandshakeFailure(ctx, entry, err, completeHandshakeBudget)
+		return nil, sessionID.String(), g.classifySessionHandshakeFailure(ctx, entry, err, completeHandshakeBudget), nil
 	}
 	labels := []gizmetrics.Label{{Name: "result", Value: "success"}, {Name: "reason", Value: "completed"}}
 	gizmetrics.AddCounter(g.ctx, metricEdgeSessionEstablishments, 1, labels...)
@@ -660,7 +679,7 @@ func (g *Gateway) openLogicalSession(
 		"entry_id", entry.id,
 		"duration_ms", time.Since(handshakeStarted).Milliseconds(),
 	)
-	return logical, sessionID.String(), false
+	return logical, sessionID.String(), false, nil
 }
 
 func preSessionHandshakeFailureCategory(err error, completeBudget bool) string {

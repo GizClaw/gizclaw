@@ -1494,7 +1494,7 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` 比较两条 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)，两边使用同一上游 `doubao-seed-2-1-lite-260915` 与 `multilingual-voice`，都使用 `asr`（`volc-bigasr-sauc`）。主 Profile 只配置 `realtime_asr_model`，验证 PTT 回退；`e2e-audio-asr` 只配置 `ptt_asr_model`，验证 realtime 回退。`e2e-giztest` 的 `audio-llm` 绑定 `doubao-lite-audio-chat`，原音进入 Eino，ASR 旁路产出 transcript；`e2e-audio-asr` 绑定文本输入 Model `doubao-lite-chat`，ASR 文本进入 Eino。Workflow 不拥有 ASR 选择，Workspace 只选择输入模式。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`，比较同一录音的 transcript、回复和首响。`setup/audio_input_comparison.py` 保存报告、日志和转写／文本／音频时延到 `testdata/audio-input-comparison/`。每条路径在回复结束后继续收集 30 秒，以记录独立 ASR 的迟到结果；首字与首条转写时延仍按真实到达时间计量。缺少期望转写或回复使样本失败。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 选择样本；`setup/audio_input_comparison_test.py` 验证离线解析与评分。
+`eino-audio-input` 比较两条 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)，两边使用同一上游 `doubao-seed-2-1-lite-260915` 与 `multilingual-voice`，都使用 `asr`（`volc-bigasr-sauc`）。主 Profile 只配置 `realtime_asr_model`，验证 PTT 回退；`e2e-audio-asr` 只配置 `ptt_asr_model`，验证 realtime 回退。`e2e-giztest` 的 `audio-llm` 绑定 `doubao-lite-audio-chat`，原音进入 Eino，ASR 旁路产出 transcript；`e2e-audio-asr` 绑定文本输入 Model `doubao-lite-chat`，ASR 文本进入 Eino。Workflow 不拥有 ASR 选择，Workspace 只选择输入模式。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`，比较同一录音的 transcript、回复和首响。`setup/audio_input_comparison.py` 保存报告、日志和转写／文本／音频时延到 `testdata/audio-input-comparison/`。每条路径在回复结束后继续收集 30 秒，以记录独立 ASR 的迟到结果；首字与首条转写时延仍按真实到达时间计量。Acceptance checks both input-path selections, nonempty transcripts and replies, text/audio delivery and EOS, and successful cleanup. The runner exit status and document/step results must pass for both paths. Transcripts and answers remain diagnostic evidence; language recognition accuracy and answer content are not acceptance criteria. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies parsing and rejects incomplete execution without scoring model semantics.
 
 `peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是 `assistant` label 文本；`/text` 按到达顺序包含所有文本片段。`eino-audio-input.push-to-talk-transcript` 验证原音进入 Model，同时独立 ASR 产出 transcript 并写入 History。`eino-audio-input.path-selection` 通过 RPC 验证音频 Model 的 PTT 直接输入、realtime 的 ASR 文本输入，以及另一 Profile 绑定文本 Model 后的 PTT ASR 输入；Workspace 只切换输入模式。
 
@@ -1829,6 +1829,22 @@ Docker suite 默认只记录速率。可用带宽有余量时，可设置
 带宽已饱和时应使用独立测得的分方向 aggregate Mbps 下限。
 
 ## GenX provider E2E
+
+GenX Transformer 集成测试统一放在已有的 `tests/genx-e2e/transformer`，沿用
+`package transformer`，通过公开 adapter API 使用实现。需要私有实现状态的单元测试
+继续留在 `pkgs/genx/transformers/`。本地协议 fixture 与真实云端用例同目录，按入口选择
+区分：Doubao PTT 故障注入和已有的 provider-free Match、deterministic duplex 回归一样
+不带 build tag，因此根模块普通 Go 与 race CI 仍会执行，且不需要云凭据。
+
+从仓库根目录单独运行本地用例或其 Docker 入口：
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+该 Docker 入口只选择上述本地测试，不启用云端 tag，也不加载 credential preflight。
+下面的真实 provider 入口启用 `gizclaw_genx_e2e`，并要求完整 credential inventory。
 
 Provider-backed transformer coverage 使用一份完整 credential inventory：
 

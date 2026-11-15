@@ -29,6 +29,13 @@ type tombstone struct {
 
 var encodedPeerTombstone = []byte(`{"version":1,"state":"deleted"}`)
 
+// peerDeletionDescriptor retains the exact unprojected record after admission
+// publishes its tombstone. Older deletion requests contain only PublicKey.
+type peerDeletionDescriptor struct {
+	PublicKey  string `json:"public_key"`
+	PeerRecord []byte `json:"peer_record,omitempty"`
+}
+
 func isPeerTombstone(data []byte) bool {
 	return bytes.Equal(data, encodedPeerTombstone)
 }
@@ -69,7 +76,10 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
 	}
-	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
+	recordUnlock, err := s.IconLocks.LockRecordContext(ctx, publicKey.String())
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
 	defer recordUnlock()
 	if guard != nil {
 		if err := guard(); err != nil {
@@ -428,15 +438,24 @@ func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, r
 		if err != nil {
 			return apitypes.Peer{}, err
 		}
-		record, err := pendingdeletion.New(pendingdeletion.KindPeer, peer.PublicKey, &peer.PublicKey, reason, struct {
-			PublicKey string `json:"public_key"`
-		}{PublicKey: peer.PublicKey}, time.Now())
+		record, err := pendingdeletion.New(pendingdeletion.KindPeer, peer.PublicKey, &peer.PublicKey, reason, peerDeletionDescriptor{
+			PublicKey: peer.PublicKey, PeerRecord: raw,
+		}, time.Now())
 		if err != nil {
 			return apitypes.Peer{}, err
 		}
-		// Compare the exact KV bytes, before SQL projection, so a stale Peer
-		// cannot recreate deletion work after finalization wrote its tombstone.
-		_, _, err = pendingdeletion.CreateOrGetGuarded(ctx, store, record, []kv.Condition{{Key: peerKey(publicKey.String()), Expected: raw}})
+		// Publish logical deletion together with its durable cleanup request.
+		// The descriptor preserves the original bytes for later cleanup; a stale
+		// active observation cannot overwrite an already committed tombstone.
+		existing, created, err := pendingdeletion.CreateOrGetGuarded(ctx, store, record,
+			[]kv.Condition{{Key: peerKey(publicKey.String()), Expected: raw}},
+			kv.Entry{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone},
+		)
+		if err == nil && !created {
+			// Reuse never writes domain entries. An older request may still
+			// retain its active Peer, so preserve its snapshot and fence together.
+			err = s.adoptPeerDeletion(kv.WithPrimaryReads(ctx), store, existing, peer, raw)
+		}
 		if errors.Is(err, pendingdeletion.ErrConflict) {
 			ctx = kv.WithPrimaryReads(ctx)
 			primaryFallback = true
@@ -455,10 +474,12 @@ func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, r
 func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	if _, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
+	_, deleteErr := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete)
+	if deleteErr == nil {
 		return nil
-	} else if !errors.Is(err, ErrPeerNotFound) {
-		return err
+	}
+	if !errors.Is(deleteErr, ErrPeerNotFound) && !errors.Is(deleteErr, ErrPeerDeleted) {
+		return deleteErr
 	}
 	store, err := s.store()
 	if err != nil {
@@ -469,7 +490,7 @@ func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) err
 		return err
 	}
 	if !exists {
-		return ErrPeerNotFound
+		return deleteErr
 	}
 	return nil
 }

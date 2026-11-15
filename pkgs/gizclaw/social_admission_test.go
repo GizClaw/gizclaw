@@ -10,9 +10,25 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
+
+func TestPeerMutationAvailabilityClassifiesTombstoneForCreationCompensation(t *testing.T) {
+	f := newSocialHTTPFixture(t)
+	check := peerMutationAvailability(f.peers)
+	if err := check(t.Context(), f.a.key.String()); err != nil {
+		t.Fatalf("active Peer rejected: %v", err)
+	}
+	if err := f.peers.DeleteSelf(t.Context(), f.a.key); err != nil {
+		t.Fatal(err)
+	}
+	err := check(t.Context(), f.a.key.String())
+	if !errors.Is(err, peer.ErrPeerDeleted) || !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("tombstone lost Peer classification or creation compensation: %v", err)
+	}
+}
 
 type missingAdmissionPeerReader struct {
 	kv.Store
@@ -131,7 +147,7 @@ func TestExistingGroupJoinRefreshesIndependentMissingPeerInputs(t *testing.T) {
 					t.Fatalf("unknown authority owner accepted: %v", err)
 				}
 			case "retiring":
-				if !errors.Is(err, peer.ErrPeerPendingDeletion) {
+				if !errors.Is(err, peer.ErrPeerDeleted) {
 					t.Fatalf("retiring authority owner accepted: %v", err)
 				}
 			default:

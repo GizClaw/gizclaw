@@ -41,6 +41,7 @@ case "$1" in
   redis)
     : "${GIZCLAW_TEST_REDIS_DSN:?GIZCLAW_TEST_REDIS_DSN is required}"
     : "${GIZCLAW_TEST_REDIS_READ_DSN:?GIZCLAW_TEST_REDIS_READ_DSN is required}"
+    GOFLAGS=-mod=readonly go test -race -count=1 -v -timeout 3m -run '^TestRedis' ./pkgs/store/kv
     GOFLAGS=-mod=readonly go test -tags=store_e2e -count=1 -p 1 -timeout 5m \
       -run '^(TestRedis|TestReadWriteRedis)' \
       ./tests/integration/store

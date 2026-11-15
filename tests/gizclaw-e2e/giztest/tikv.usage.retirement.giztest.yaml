@@ -18,7 +18,6 @@ variables:
   token_b: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_B, secret: true}
   probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
   probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
-  replication: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_REPLICATION_PROXY}
   name: {direction: input, type: string, generate: token}
   alice_key_name: {direction: output, type: string}
   alice_public: {direction: output, type: string}
@@ -60,10 +59,12 @@ steps:
   - id: observe_known_member_lookup
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: stale-known-member, key: [friend-group-members, '${group_id}', '${alice_public}'], commands: [Get], source: learner, stage: response, count_only: true, diagnostics: true}}
-  - id: freeze_real_raft
+  # Retain an observed MVCC snapshot while native Learner synchronization
+  # stays healthy. Cutting Raft would test an unavailable reader instead.
+  - id: retain_membership_read_clock
     client: bob
-    http: {endpoint: '${replication}', method: POST, path: /freeze, body: {}}
-    expect: {/frozen: {equals: true}}
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    expect: {/frozen: {equals: true}, /read_version: {minimum: 1}}
   - id: admit_member_at_authority
     client: bob
     http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.member.add, id: '${group_id}', peer: '${alice_public}', name: '${name}', primary: true}}
@@ -97,15 +98,20 @@ steps:
   - id: readd_before_retirement_fence
     client: bob
     http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.member.add, id: '${group_id}', peer: '${alice_public}', name: '${name}', primary: true}}
+  - id: readded_membership_exists_at_authority
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-belongs, '${alice_public}', '${group_id}'], primary: true}}
+    expect: {/value/found: {equals: true}, /value/data/friend_group_id: {equals: '${group_id}'}}
+  - id: creator_retains_its_older_membership_deletion
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-belongs, '${alice_public}', '${group_id}']}}
+    expect: {/value/found: {equals: false}}
+  # A pass may see partial inventory. The next pass must rebuild it rather
+  # than treating this retained historical view as a complete deletion plan.
   - id: prepare_independent_lag_retirement
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: social.prepare, peer: '${alice_public}'}}
-    expect:
-      /value/public_key: {equals: '${alice_public}'}
-      /value/groups: {count: 1}
-      /value/groups/0/friend_group_id: {equals: '${group_id}'}
-      /value/groups/0/peer_public_key: {equals: '${alice_public}'}
-      /value/groups/0/workspace_name: {equals: '${workspace}'}
+    expect: {/value/public_key: {equals: '${alice_public}'}}
   - id: prepare_owned_workspace_retirement
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.prepare, peer: '${alice_public}'}}
@@ -132,44 +138,53 @@ steps:
     client: bob
     http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.create, id: '${name}-late', owner: '${alice_public}', name: late-group, primary: true, expected_error: true}}
     expect: {/error: {non_empty: true}}
-  - id: resume_real_raft
+  - id: release_membership_read_clock
     client: bob
-    http: {endpoint: '${replication}', method: POST, path: /resume, body: {}}
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
     expect: {/frozen: {equals: false}}
+  - id: refreshed_retirement_finds_readded_membership
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: social.prepare, peer: '${alice_public}'}}
+    expect:
+      /value/public_key: {equals: '${alice_public}'}
+      /value/groups: {count: 1}
+      /value/groups/0/friend_group_id: {equals: '${group_id}'}
+      /value/groups/0/peer_public_key: {equals: '${alice_public}'}
+      /value/groups/0/workspace_name: {equals: '${workspace}'}
   - id: delete_peer_through_real_rpc
     client: alice
     rpc: {method: server.peer.delete, request: {}}
-  - id: wait_exact_completed_tombstone
+  - id: deletion_request_publishes_tombstone
     client: bob
-    timeout: 85s
     http:
       endpoint: '${probe_a}'
       method: POST
       path: /invoke
-      body: {operation: read, store: peer, key: [records, by-pubkey, '${alice_public}'], primary: true, found: true, field: state, equals: deleted, wait: 80s}
-    expect: {/value/data/version: {equals: 1}, /value/data/state: {equals: deleted}}
+      body: {operation: read, store: peer, key: [records, by-pubkey, '${alice_public}'], primary: true}
+    expect: {/value/found: {equals: true}, /value/data/version: {equals: 1}, /value/data/state: {equals: deleted}}
   - id: retired_owned_workspace_has_no_sql_row
     client: bob
-    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${name}-owned', equals: 0, wait: 20s}}
+    timeout: 85s
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${name}-owned', equals: 0, wait: 80s}}
     expect: {/value/count: {equals: 0}}
-  - id: completed_peer_has_no_task
+  - id: deletion_request_remains_for_hourly_passes
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.tasks, peer: '${alice_public}', primary: true}}
-    expect: {/value/count: {equals: 0}}
-  - id: repeated_delete_is_refused_without_new_work
+    expect: {/value/count: {equals: 1}}
+  - id: repeated_delete_reuses_request
     client: bob
-    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.delete, peer: '${alice_public}', expected_error: true}}
-  - id: repeated_delete_did_not_recreate_task
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.delete, peer: '${alice_public}'}}
+  - id: repeated_delete_does_not_duplicate_request
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.tasks, peer: '${alice_public}', primary: true}}
-    expect: {/value/count: {equals: 0}}
+    expect: {/value/count: {equals: 1}}
   - id: final_membership_is_absent
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-belongs, '${alice_public}', '${group_id}'], primary: true}}
     expect: {/value/found: {equals: false}}
 finally:
   - client: bob
-    http: {endpoint: '${replication}', method: POST, path: /resume, body: {}}
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
   - client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
   - client: bob

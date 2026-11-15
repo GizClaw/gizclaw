@@ -27,9 +27,12 @@ import (
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/pingcap/kvproto/pkg/metapb"
 	tikvkv "github.com/tikv/client-go/v2/kv"
+	"github.com/tikv/client-go/v2/oracle"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
+	"github.com/tikv/client-go/v2/tikvrpc/interceptor"
 	"github.com/tikv/client-go/v2/util/async"
 )
 
@@ -170,21 +173,34 @@ type tiKVReadObservation struct {
 	ReplicaRead tikvkv.ReplicaReadType
 	Type        tikvrpc.CmdType
 	Version     uint64
+	Role        metapb.PeerRole
 	Keys        int
 }
 type observedTiKVClient struct {
 	tikv.Client
-	mu    sync.Mutex
-	reads []tiKVReadObservation
+	mu       sync.Mutex
+	reads    []tiKVReadObservation
+	attempts []tiKVReadObservation
 }
 
 func (c *observedTiKVClient) SendRequest(ctx context.Context, address string, req *tikvrpc.Request, timeout time.Duration) (*tikvrpc.Response, error) {
+	// The borrowed SDK client contains its synchronous context interceptor.
+	// Append observation after the existing routing guard, immediately before
+	// dispatch. Recording on wrapper entry would count rejected selections as
+	// network attempts and falsely claim a Leader data fallback.
+	ctx = interceptor.WithRPCInterceptor(ctx, interceptor.NewRPCInterceptor("native-test-dispatch", func(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
+		return func(target string, request *tikvrpc.Request) (*tikvrpc.Response, error) {
+			c.recordAttempt(target, request)
+			return next(target, request)
+		}
+	}))
 	resp, err := c.Client.SendRequest(ctx, address, req, timeout)
 	c.record(address, req, resp, err)
 	return resp, err
 }
 
 func (c *observedTiKVClient) SendRequestAsync(ctx context.Context, address string, req *tikvrpc.Request, callback async.Callback[*tikvrpc.Response]) {
+	c.recordAttempt(address, req)
 	callback.Inject(func(resp *tikvrpc.Response, err error) (*tikvrpc.Response, error) {
 		c.record(address, req, resp, err)
 		return resp, err
@@ -193,24 +209,55 @@ func (c *observedTiKVClient) SendRequestAsync(ctx context.Context, address strin
 }
 
 func (c *observedTiKVClient) record(address string, req *tikvrpc.Request, resp *tikvrpc.Response, err error) {
-	if err == nil && (req.Type == tikvrpc.CmdGet || req.Type == tikvrpc.CmdBatchGet || req.Type == tikvrpc.CmdScan) {
-		regionError, decodeErr := resp.GetRegionError()
-		if decodeErr == nil && regionError == nil {
-			observation := tiKVReadObservation{Address: address, Stale: req.StaleRead, ReplicaRead: req.ReplicaReadType, Type: req.Type}
-			switch req.Type {
-			case tikvrpc.CmdGet:
-				observation.Version, observation.Keys = req.Get().Version, 1
-			case tikvrpc.CmdBatchGet:
-				observation.Version, observation.Keys = req.BatchGet().Version, len(req.BatchGet().Keys)
-			case tikvrpc.CmdScan:
-				observation.Version = req.Scan().Version
-			}
-			c.mu.Lock()
-			c.reads = append(c.reads, observation)
-			c.mu.Unlock()
-		}
+	if err != nil {
+		return
 	}
+	observation, ok := readObservation(address, req)
+	if !ok {
+		return
+	}
+	regionError, decodeErr := resp.GetRegionError()
+	if decodeErr != nil || regionError != nil {
+		return
+	}
+	c.mu.Lock()
+	c.reads = append(c.reads, observation)
+	c.mu.Unlock()
 }
+
+// Record transport attempts before dispatch, including timeouts and rejected
+// native responses. Success-only evidence cannot prove absence of fallback.
+func (c *observedTiKVClient) recordAttempt(address string, req *tikvrpc.Request) {
+	observation, ok := readObservation(address, req)
+	if !ok {
+		return
+	}
+	c.mu.Lock()
+	c.attempts = append(c.attempts, observation)
+	c.mu.Unlock()
+}
+
+func readObservation(address string, req *tikvrpc.Request) (tiKVReadObservation, bool) {
+	observation := tiKVReadObservation{Address: address, Stale: req.StaleRead, ReplicaRead: req.ReplicaReadType, Type: req.Type, Role: req.Peer.GetRole()}
+	switch req.Type {
+	case tikvrpc.CmdGet:
+		observation.Version, observation.Keys = req.Get().Version, 1
+	case tikvrpc.CmdBatchGet:
+		observation.Version, observation.Keys = req.BatchGet().Version, len(req.BatchGet().Keys)
+	case tikvrpc.CmdScan:
+		observation.Version = req.Scan().Version
+	default:
+		return tiKVReadObservation{}, false
+	}
+	return observation, true
+}
+
+func (c *observedTiKVClient) attemptedReads() []tiKVReadObservation {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return slices.Clone(c.attempts)
+}
+
 func (c *observedTiKVClient) snapshot() []tiKVReadObservation {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -248,7 +295,9 @@ func TestTiKV(t *testing.T) {
 	prefix := kv.Key{"test-" + rand.Text()}
 	t.Run("shared-kv-contract", func(t *testing.T) { assertSharedKV(t, kv.Prefixed(root, prefix), kv.Prefixed(secondRoot, prefix)) })
 	t.Run("registry", func(t *testing.T) { testTiKVRegistry(t, physical) })
-	t.Run("regional-replication-lag", func(t *testing.T) { testTiKVLag(t, client, observer) })
+	t.Run("regional-cached-snapshot", func(t *testing.T) { testTiKVLag(t, client, observer) })
+	t.Run("regional-replication-unavailable", func(t *testing.T) { testTiKVUnavailableLearner(t, client, observer, addresses) })
+	t.Run("local-read-your-writes", func(t *testing.T) { testTiKVLocalWrites(t, client) })
 	t.Run("presence-pages", func(t *testing.T) { testTiKVPresence(t, address, addresses) })
 	t.Run("presence-transitions", func(t *testing.T) { testTiKVPresenceTransitions(t, address) })
 }
@@ -289,19 +338,201 @@ func testTiKVRegistry(t *testing.T, physical *storage.Storage) {
 	}
 }
 
-func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClient) {
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+// Unlike the cached-snapshot service test below, this test really interrupts
+// Raft replication. Ordinary reads must fail rather than change data authority.
+func testTiKVUnavailableLearner(t *testing.T, client *tikv.KVStore, observer *observedTiKVClient, addresses map[string]string) {
+	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
 	defer cancel()
-	const delay = 30 * time.Second
-	root, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{StaleReadDelay: delay, Labels: map[string]string{"region": "local"}}, nil)
+	options := kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}
+	readerRoot, err := kv.NewTiKVWithClient(client, options, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	base := kv.Prefixed(root, kv.Key{"lag-" + rand.Text()})
+	writerRoot, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := kv.Key{"native-unavailable-" + rand.Text()}
+	reader, writer := kv.Prefixed(readerRoot, prefix), kv.Prefixed(writerRoot, prefix)
+	key, secondKey, set := kv.Key{"record"}, kv.Key{"second-record"}, kv.Key{"members"}
+	if err := writer.BatchSet(ctx, []kv.Entry{{Key: key, Value: []byte("seed")}, {Key: secondKey, Value: []byte("second-seed")}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.AddMembers(ctx, set, "member"); err != nil {
+		t.Fatal(err)
+	}
+	// Require an actual healthy native read first. This fails, rather than
+	// enabling stale reads or relaxing routing, if TiKV rejects the protocol.
+	deadline, stop := context.WithTimeout(ctx, 10*time.Second)
+	defer stop()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		value, err := reader.Get(deadline, key)
+		if err == nil && string(value) == "seed" {
+			break
+		}
+		if err != nil && !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("healthy native Learner Get failed: %v", err)
+		}
+		select {
+		case <-deadline.Done():
+			t.Fatalf("healthy native Learner did not observe seed: %q, %v", value, err)
+		case <-ticker.C:
+		}
+	}
+	operations := []struct {
+		name string
+		read func(context.Context, kv.Store) error
+	}{
+		{"Get", func(ctx context.Context, store kv.Store) error { _, err := store.Get(ctx, key); return err }},
+		{"BatchGet", func(ctx context.Context, store kv.Store) error {
+			results := store.BatchGet(ctx, []kv.Key{key, secondKey})
+			if results[0].Err != nil {
+				return results[0].Err
+			}
+			return results[1].Err
+		}},
+		{"Scan", func(ctx context.Context, store kv.Store) error { _, err := store.ListMembers(ctx, set); return err }},
+	}
+	assertNativeAttempts := func(start int, name string, required bool) {
+		t.Helper()
+		attempts := observer.attemptedReads()[start:]
+		if required && len(attempts) == 0 {
+			t.Fatalf("%s issued no native data request", name)
+		}
+		for _, attempt := range attempts {
+			if attempt.Address != addresses["local"] || attempt.Role != metapb.PeerRole_Learner || attempt.ReplicaRead != tikvkv.ReplicaReadLearner || attempt.Stale {
+				t.Fatalf("%s attempted a nonmatching/Leader/stale data request: %+v", name, attempt)
+			}
+		}
+		t.Logf("%s: %d native Learner data attempts, including failed responses; no Leader data attempts", name, len(attempts))
+	}
+	for _, operation := range operations {
+		start := len(observer.attemptedReads())
+		if err := operation.read(ctx, reader); err != nil {
+			t.Fatalf("healthy native Learner %s failed: %v", operation.name, err)
+		}
+		assertNativeAttempts(start, "healthy "+operation.name, true)
+		expectedCommand := map[string]tikvrpc.CmdType{"Get": tikvrpc.CmdGet, "BatchGet": tikvrpc.CmdBatchGet, "Scan": tikvrpc.CmdScan}[operation.name]
+		if !slices.ContainsFunc(observer.attemptedReads()[start:], func(attempt tiKVReadObservation) bool { return attempt.Type == expectedCommand }) {
+			t.Fatalf("healthy %s never dispatched native %s (an optimized Get does not exercise BatchGet)", operation.name, expectedCommand)
+		}
+	}
+	t.Run("wrong-labels-do-not-cancel-caller-or-poison-primary", func(t *testing.T) {
+		wrongRoot, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{Labels: map[string]string{"region": "no-such-region"}}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		wrong := kv.Prefixed(wrongRoot, prefix)
+		for _, operation := range operations {
+			caller, callerCancel := context.WithTimeout(ctx, 5*time.Second)
+			start := len(observer.attemptedReads())
+			err := operation.read(caller, wrong)
+			callerErr := caller.Err()
+			if err == nil || errors.Is(err, kv.ErrNotFound) || callerErr != nil {
+				callerCancel()
+				t.Fatalf("wrong-label %s = %v, caller = %v", operation.name, err, callerErr)
+			}
+			if attempts := observer.attemptedReads()[start:]; len(attempts) != 0 {
+				callerCancel()
+				t.Fatalf("wrong-label %s reached a nonmatching data peer: %+v", operation.name, attempts)
+			}
+			if err := operation.read(kv.WithPrimaryReads(caller), wrong); err != nil {
+				callerCancel()
+				t.Fatalf("wrong-label rejection poisoned explicit primary %s: %v", operation.name, err)
+			}
+			callerCancel()
+		}
+	})
+
+	proxyURL := requiredEnvironment(t, "GIZCLAW_TEST_TIKV_PROXY")
+	var gate struct {
+		Frozen  bool `json:"frozen"`
+		Blocked int  `json:"blocked"`
+	}
+	if err := tiKVHTTP(ctx, http.MethodPost, proxyURL+"/freeze", nil, &gate); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		cleanup, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cleanupCancel()
+		if err := tiKVHTTP(cleanup, http.MethodPost, proxyURL+"/resume", nil, nil); err != nil {
+			t.Error(err)
+		}
+	}()
+	if !gate.Frozen || gate.Blocked == 0 {
+		t.Fatalf("Raft replication was not interrupted: %+v", gate)
+	}
+	if err := writer.Set(ctx, key, []byte("committed-while-paused")); err != nil {
+		t.Fatalf("leader write during paused replication: %v", err)
+	}
+	// Wait for the real cached PD timestamp to cover the acknowledged write.
+	// This prevents an older cached snapshot from legitimately returning seed.
+	barrier, err := client.GetOracle().GetTimestamp(ctx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		cached, err := client.GetOracle().GetLowResolutionTimestamp(ctx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cached >= barrier {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	for _, operation := range operations {
+		start := len(observer.attemptedReads())
+		callCtx, callCancel := context.WithTimeout(ctx, 2*time.Second)
+		err := operation.read(callCtx, reader)
+		callCancel()
+		if err == nil || errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("paused replication %s returned a successful/absent result: %v", operation.name, err)
+		}
+		assertNativeAttempts(start, "paused replication "+operation.name, operation.name == "Get")
+		// The SDK may already classify the Learner as unhealthy after Get;
+		// later calls may reject routing before transport, but never use Leader.
+		if err := operation.read(kv.WithPrimaryReads(ctx), reader); err != nil {
+			t.Fatalf("explicit primary %s failed during paused replication: %v", operation.name, err)
+		}
+	}
+	if got, err := reader.Get(kv.WithPrimaryReads(ctx), key); err != nil || string(got) != "committed-while-paused" {
+		t.Fatalf("explicit primary did not retain acknowledged write: %q, %v", got, err)
+	}
+	if err := tiKVHTTP(ctx, http.MethodGet, proxyURL+"/status", nil, &gate); err != nil || !gate.Frozen {
+		t.Fatalf("Raft resumed during unavailable-Learner checks: %+v, %v", gate, err)
+	}
+	t.Logf("real Raft replication paused: blocked=%d; native Learner errors propagated while primary reads and writes remained available", gate.Blocked)
+}
+
+func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClient) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
+	defer cancel()
+	root, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Separate backend instances model remote writes. Local writes now have a
+	// postimage overlay; another instance must still retain historical absence.
+	writerRoot, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := kv.Key{"lag-" + rand.Text()}
+	base, writerBase := kv.Prefixed(root, prefix), kv.Prefixed(writerRoot, prefix)
 	peerStore := kv.Prefixed(base, kv.Key{"records"})
 	routeStore := kv.Prefixed(base, kv.Key{"routes"})
 	keyStore := kv.Prefixed(base, kv.Key{"keys"})
-	centralPeers := &peer.Server{Store: peerStore, ServerPublicKey: giznet.PublicKey{71}}
+	writerPeers := kv.Prefixed(writerBase, kv.Key{"records"})
+	writerRoutes := kv.Prefixed(writerBase, kv.Key{"routes"})
+	writerKeys := kv.Prefixed(writerBase, kv.Key{"keys"})
+	centralPeers := &peer.Server{Store: writerPeers, ServerPublicKey: giznet.PublicKey{71}}
 	regionalPeers := &peer.Server{Store: peerStore}
 	ownerKey, newKey, blockedKey := giznet.PublicKey{61}, giznet.PublicKey{62}, giznet.PublicKey{63}
 	for _, key := range []giznet.PublicKey{ownerKey, newKey, blockedKey} {
@@ -309,14 +540,15 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 			t.Fatal(err)
 		}
 	}
-	owner := &peerroute.Server{Store: routeStore, Peers: regionalPeers, ServerPublicKey: giznet.PublicKey{71}, ServerEndpoint: "https://server-a.example"}
+	owner := &peerroute.Server{Store: writerRoutes, Peers: regionalPeers, ServerPublicKey: giznet.PublicKey{71}, ServerEndpoint: "https://server-a.example"}
 	foreign := &peerroute.Server{Store: routeStore, Peers: regionalPeers, ServerPublicKey: giznet.PublicKey{72}, ServerEndpoint: "https://server-b.example"}
 	// Setup follows acknowledged Peer writes before the reader can see them.
 	initial, err := owner.Assign(kv.WithPrimaryReads(ctx), ownerKey, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := apikey.NewServer(keyStore)
+	keys := apikey.NewServer(writerKeys)
+	regionalKeys := apikey.NewServer(keyStore)
 	toRevoke, err := keys.Create(ctx, ownerKey.String(), "revoke", false)
 	if err != nil {
 		t.Fatal(err)
@@ -326,18 +558,18 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 		t.Fatal(err)
 	}
 	setKey, orderedKey := kv.Key{"members"}, kv.Key{"ordered-members"}
-	if err := base.AddMembers(ctx, setKey, "a", "b"); err != nil {
+	if err := writerBase.AddMembers(ctx, setKey, "a", "b"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := base.ApplyMutation(ctx, kv.Mutation{AddOrderedMembers: []kv.SetMembers{{Key: orderedKey, Members: []string{"a", "b", "c"}}}}); err != nil {
+	if _, err := writerBase.ApplyMutation(ctx, kv.Mutation{AddOrderedMembers: []kv.SetMembers{{Key: orderedKey, Members: []string{"a", "b", "c"}}}}); err != nil {
 		t.Fatal(err)
 	}
 	marker := kv.Key{"seed-ready"}
-	if err := base.Set(ctx, marker, []byte("ready")); err != nil {
+	if err := writerBase.Set(ctx, marker, []byte("ready")); err != nil {
 		t.Fatal(err)
 	}
-	t.Log("waiting for the configured historical reader to observe all seeded writes before freezing Raft")
-	seedCtx, seedCancel := context.WithTimeout(ctx, delay+10*time.Second)
+	t.Log("waiting for native Learner reads to observe seeded writes before freezing only the cached PD timestamp")
+	seedCtx, seedCancel := context.WithTimeout(ctx, 10*time.Second)
 	seedTicker := time.NewTicker(100 * time.Millisecond)
 	for {
 		value, err := base.Get(seedCtx, marker)
@@ -352,22 +584,7 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	}
 	seedTicker.Stop()
 	seedCancel()
-	proxyURL := requiredEnvironment(t, "GIZCLAW_TEST_TIKV_PROXY")
-	var gate struct {
-		Frozen  bool `json:"frozen"`
-		Blocked int  `json:"blocked"`
-	}
-	if err := tiKVHTTP(ctx, http.MethodPost, proxyURL+"/freeze", nil, &gate); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cleanupCancel()
-		_ = tiKVHTTP(cleanupCtx, http.MethodPost, proxyURL+"/resume", nil, nil)
-	})
-	if !gate.Frozen || gate.Blocked == 0 {
-		t.Fatalf("replication was not interrupted: %+v", gate)
-	}
+	clock := freezeTiKVReadClock(t, client)
 	frozenAt := time.Now()
 	readStart := len(observer.snapshot())
 	assertLearnerReads := func(start int, operation string) {
@@ -377,9 +594,9 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 			t.Fatalf("%s issued no observed reads", operation)
 		}
 		for _, r := range reads {
-			// ReplicaRead and Version identify the historical Learner path;
-			// the per-snapshot interceptor also marks Learner scans stale.
-			if r.Address != "gate:20160" || r.ReplicaRead != tikvkv.ReplicaReadLearner || r.Version == 0 || r.Version>>18 >= uint64(frozenAt.UnixMilli()) {
+			// The exact cached snapshot remains fixed while native replication
+			// and ReadIndex synchronization stay healthy.
+			if r.Address != "gate:20160" || r.Role != metapb.PeerRole_Learner || r.Stale || r.ReplicaRead != tikvkv.ReplicaReadLearner || r.Version != clock.cached {
 				t.Fatalf("%s escaped the historical Learner: %+v", operation, r)
 			}
 		}
@@ -436,7 +653,8 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 		t.Fatalf("foreign claim: %v", err)
 	}
 	start = len(observer.snapshot())
-	if _, err := owner.Assign(ctx, ownerKey, &initial.Version); !errors.Is(err, peerroute.ErrVersionConflict) {
+	staleOwner := &peerroute.Server{Store: routeStore, Peers: regionalPeers, ServerPublicKey: owner.ServerPublicKey, ServerEndpoint: owner.ServerEndpoint}
+	if _, err := staleOwner.Assign(ctx, ownerKey, &initial.Version); !errors.Is(err, peerroute.ErrVersionConflict) {
 		t.Fatalf("old expected version accepted: %v", err)
 	}
 	assertFallback(start, "stale expected_version conflict")
@@ -462,13 +680,13 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	if _, err := keys.Authenticate(primaryCtx, toRevoke.Secret); !errors.Is(err, apikey.ErrInvalidAPIKey) {
 		t.Fatalf("primary retained revoked credential: %v", err)
 	}
-	if err := base.RemoveMembers(ctx, setKey, "a"); err != nil {
+	if err := writerBase.RemoveMembers(ctx, setKey, "a"); err != nil {
 		t.Fatal(err)
 	}
-	if err := base.AddMembers(ctx, setKey, "c"); err != nil {
+	if err := writerBase.AddMembers(ctx, setKey, "c"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := base.ApplyMutation(ctx, kv.Mutation{
+	if _, err := writerBase.ApplyMutation(ctx, kv.Mutation{
 		RemoveOrderedMembers: []kv.SetMembers{{Key: orderedKey, Members: []string{"b"}}},
 		AddOrderedMembers:    []kv.SetMembers{{Key: orderedKey, Members: []string{"d"}}},
 	}); err != nil {
@@ -488,8 +706,8 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	for _, r := range observer.snapshot()[start:] {
 		if r.Type == tikvrpc.CmdScan {
 			scans++
-			if !r.Stale {
-				t.Fatalf("historical Learner scan missing stale-read compatibility flag: %+v", r)
+			if r.Stale {
+				t.Fatalf("native Learner scan unexpectedly used StaleRead: %+v", r)
 			}
 		}
 	}
@@ -499,13 +717,13 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	if err := centralPeers.DeleteSelf(ctx, ownerKey); err != nil {
 		t.Fatal(err)
 	}
-	if err := regionalPeers.EnsureAvailable(primaryCtx, ownerKey); !errors.Is(err, peer.ErrPeerPendingDeletion) {
+	if err := regionalPeers.EnsureAvailable(primaryCtx, ownerKey); !errors.Is(err, peer.ErrPeerDeleted) {
 		t.Fatalf("primary deletion fence: %v", err)
 	}
 	if err := regionalPeers.EnsureAvailable(ctx, ownerKey); err != nil {
 		t.Fatalf("ordinary availability did not retain seeded Peer: %v", err)
 	}
-	if err := pendingPeerRetirement(t, ctx, centralPeers, peerStore, keys, owner); err != nil {
+	if err := pendingPeerRetirement(t, ctx, centralPeers, writerPeers, keys, owner); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := peerStore.Get(primaryCtx, kv.Key{"by-pubkey", ownerKey.String()}); err != nil || !bytes.Equal(got, []byte(`{"version":1,"state":"deleted"}`)) {
@@ -540,7 +758,7 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	if got, err := foreign.Resolve(ctx, ownerKey); err != nil || got.Version != initial.Version || got.ServerEndpoint != initial.ServerEndpoint {
 		t.Fatalf("ordinary deleted Peer route did not retain snapshot: %+v %v", got, err)
 	}
-	if got, err := keys.Authenticate(ctx, retained.Secret); err != nil || got.Key.Name != retained.Key.Name {
+	if got, err := regionalKeys.Authenticate(ctx, retained.Secret); err != nil || got.Key.Name != retained.Key.Name {
 		t.Fatalf("ordinary retired owner key did not retain snapshot: %+v %v", got, err)
 	}
 	if got, err := regionalPeers.LoadPeer(ctx, blockedKey); err != nil || got.Status != apitypes.PeerRegistrationStatusActive {
@@ -560,13 +778,13 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 		t.Fatalf("Learner revoked credential control changed: %v", err)
 	}
 	if time.Since(frozenAt) > 25*time.Second {
-		t.Fatal("lag assertions exceeded the retained snapshot window")
+		t.Fatal("cached snapshot assertions exceeded their test budget")
 	}
 	staleReads, strongReads := 0, 0
 	for _, r := range observer.snapshot()[readStart:] {
 		if r.Stale || r.ReplicaRead == tikvkv.ReplicaReadLearner {
 			staleReads++
-			if r.Address != "gate:20160" || r.Version == 0 || r.Version>>18 >= uint64(frozenAt.UnixMilli()) {
+			if r.Address != "gate:20160" || r.Role != metapb.PeerRole_Learner || r.Stale || r.Version != clock.cached {
 				t.Fatalf("historical read escaped regional Learner: %+v", r)
 			}
 		} else {
@@ -579,21 +797,9 @@ func testTiKVLag(t *testing.T, client *tikv.KVStore, observer *observedTiKVClien
 	if staleReads < 6 || strongReads == 0 {
 		t.Fatalf("missing observed read paths: stale=%d primary=%d", staleReads, strongReads)
 	}
-	if err := tiKVHTTP(ctx, http.MethodGet, proxyURL+"/status", nil, &gate); err != nil || !gate.Frozen {
-		t.Fatalf("replication resumed during lag assertions: %+v %v", gate, err)
-	}
-	t.Logf("frozen Learner verified: %d historical reads, %d primary reads, collection scans and conflict fallback in %s", staleReads, strongReads, time.Since(frozenAt).Round(time.Millisecond))
-	if err := tiKVHTTP(ctx, http.MethodPost, proxyURL+"/resume", nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	// A snapshot selected after resumption must age beyond all frozen writes.
-	timer := time.NewTimer(delay + time.Second)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	case <-timer.C:
-	}
+	t.Logf("test-only frozen PD snapshot %d with healthy Raft: %d native Learner reads, %d primary reads, collection scans and explicit conflict recovery in %s", clock.cached, staleReads, strongReads, time.Since(frozenAt).Round(time.Millisecond))
+	clock.frozen.Store(false)
+	// Let the real cached PD timestamp advance beyond the remote writes.
 	convergenceCtx, convergenceCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer convergenceCancel()
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -668,31 +874,74 @@ func (tiKVRetirement) HasLocator(context.Context, pendingdeletion.Locator) (bool
 }
 func pendingPeerRetirement(t *testing.T, ctx context.Context, server *peer.Server, store kv.Store, keys *apikey.Server, assignments peer.DeletionAssignments) error {
 	t.Helper()
-	source := peer.PendingDeletionSource(store)
 	now := time.Now().Add(time.Second)
-	refs, _, err := source.ScanDue(ctx, now, 10, "")
-	if err != nil {
-		return err
-	}
-	if len(refs) == 0 {
-		// DeleteSelf just acknowledged this marker. An empty historical scan
-		// conflicts with that known write, so retry discovery once on primary.
-		refs, _, err = source.ScanDue(kv.WithPrimaryReads(ctx), now, 10, "")
+	var deletionID string
+	for execution := 1; execution <= 32; execution++ {
+		// Advance only the worker's scheduling clock. TiKV versions, ordinary
+		// reader snapshots and the permanent Peer tombstone remain real.
+		source := peer.PendingDeletionSource(store)
+		refs, _, err := source.ScanDue(ctx, now, 10, "")
 		if err != nil {
 			return err
 		}
+		if len(refs) == 0 {
+			// The preceding delete or defer acknowledged this task. Preserve the
+			// existing bounded discovery recovery after that known write.
+			refs, _, err = source.ScanDue(kv.WithPrimaryReads(ctx), now, 10, "")
+			if err != nil {
+				return err
+			}
+		}
+		if len(refs) != 1 {
+			return fmt.Errorf("execution %d pending tasks=%d, want 1", execution, len(refs))
+		}
+		claim, claimed, err := source.Claim(ctx, refs[0], now, time.Minute)
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			return errors.New("pending deletion not claimed")
+		}
+		if execution == 1 {
+			deletionID = claim.Record.DeletionID
+		}
+		if claim.Record.DeletionID != deletionID || claim.ExecutionCount != execution-1 {
+			return fmt.Errorf("execution %d claimed deletion=%s count=%d", execution, claim.Record.DeletionID, claim.ExecutionCount)
+		}
+		adapters := tiKVRetirement{owner: claim.Record.ResourceID}
+		finishedAt := now.Add(time.Second)
+		handler := peer.DeletionHandler{Server: server, Assignments: assignments, Source: source, Social: adapters, Workspaces: adapters, APIKeys: keys, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters, WorkspaceLookup: adapters, FriendGroupLookup: adapters, Now: func() time.Time { return finishedAt }}
+		err = handler.Handle(ctx, claim)
+		if execution == 32 {
+			if err != nil {
+				return err
+			}
+			if _, err := source.GetTask(ctx, deletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
+				return fmt.Errorf("completed deletion task remains: %v", err)
+			}
+			t.Log("Peer retirement completed after 32 persisted executions with hourly scheduling")
+			return nil
+		}
+		outcome, ok := errors.AsType[*pendingdeletion.OutcomeError](err)
+		if !ok || outcome.Class != pendingdeletion.OutcomeDeferred || outcome.Code != "peer_cleanup_rescan_pending" || outcome.After != time.Hour {
+			return fmt.Errorf("execution %d did not defer for hourly rescan: %v", execution, err)
+		}
+		nextAttempt := finishedAt.Add(outcome.After)
+		if err := source.Defer(ctx, claim, outcome.Code, outcome.Message, nextAttempt, finishedAt); err != nil {
+			return err
+		}
+		task, err := source.GetTask(ctx, deletionID)
+		if err != nil {
+			return err
+		}
+		if task.ExecutionCount != execution || task.FailureCount != 0 || !task.NextAttemptAt.Equal(nextAttempt) {
+			return fmt.Errorf("execution %d persisted count=%d failures=%d next=%s", execution, task.ExecutionCount, task.FailureCount, task.NextAttemptAt)
+		}
+		early, _, err := source.ScanDue(ctx, nextAttempt.Add(-time.Nanosecond), 10, "")
+		if err != nil || len(early) != 0 {
+			return fmt.Errorf("execution %d became due before its hourly delay: tasks=%d error=%v", execution, len(early), err)
+		}
+		now = task.NextAttemptAt
 	}
-	if len(refs) != 1 {
-		return fmt.Errorf("pending tasks=%d, want 1", len(refs))
-	}
-	claim, claimed, err := source.Claim(ctx, refs[0], now, time.Minute)
-	if err != nil {
-		return err
-	}
-	if !claimed {
-		return errors.New("pending deletion not claimed")
-	}
-	adapters := tiKVRetirement{owner: claim.Record.ResourceID}
-	handler := peer.DeletionHandler{Server: server, Assignments: assignments, Source: source, Social: adapters, Workspaces: adapters, APIKeys: keys, RuntimeProfiles: adapters, Memory: adapters, Quiescer: adapters, WorkspaceLookup: adapters, FriendGroupLookup: adapters, Now: func() time.Time { return now.Add(time.Second) }}
-	return handler.Handle(ctx, claim)
+	return errors.New("Peer retirement did not complete")
 }

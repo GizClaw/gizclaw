@@ -20,6 +20,216 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+// Registration uses the ordinary Peer Store even on an admitted connection.
+// Read/write-separated backends own local write visibility; RPC has no shortcut.
+func TestRPCRegistrationUsesPeerStore(t *testing.T) {
+	for _, state := range []string{"present", "missing", "read-error"} {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			registrations := firmwareRegistrationServer(t, "h106-profile", "h106")
+			firmwareID := "h106"
+			response, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
+				Body: &adminhttp.RegistrationTokenUpsert{
+					Id: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-profile", FirmwareId: &firmwareID,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+			if !ok {
+				t.Fatalf("CreateRegistrationToken() = %T", response)
+			}
+			peers := &peer.Server{Store: kv.NewMemory(nil), RegistrationFirmware: registrations.ResolveOwnerFirmware}
+			manager := NewManager(peers)
+			manager.RuntimeProfiles = registrations
+			publicKey := giznet.PublicKey{19}
+			conn := &testGiznetConn{publicKey: publicKey}
+			if _, err := manager.activatePeer(ctx, conn); err != nil {
+				t.Fatal(err)
+			}
+			connection := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
+			connection.initRPC()
+			var lookupErr error
+			if state == "missing" {
+				lookupErr = kv.ErrNotFound
+			} else if state == "read-error" {
+				lookupErr = errors.New("peer reader unavailable")
+			}
+			reader := &admissionStore{
+				Store:      peers.Store,
+				beforeRead: func(context.Context) error { return lookupErr },
+			}
+			peers.Store = reader
+			var projections atomic.Int32
+			peers.RegistrationFirmware = func(context.Context, string) (*string, error) {
+				projections.Add(1)
+				return nil, errors.New("unused firmware projection unavailable")
+			}
+			registered, err := connection.rpc.dispatch(ctx, registrationRequest(created.Token))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if reader.reads.Load() == 0 {
+				t.Fatal("registration bypassed the Peer Store")
+			}
+			if projections.Load() != 0 {
+				t.Fatal("registration resolved an unused firmware projection")
+			}
+			if state == "present" {
+				if registered.Error != nil {
+					t.Fatalf("registration rejected an available Peer: %#v", registered.Error)
+				}
+				binding, err := registrations.ResolveOwnerProfile(ctx, publicKey.String())
+				if err != nil || binding.Id != "h106-profile" {
+					t.Fatalf("owner profile = %#v, %v", binding, err)
+				}
+			} else {
+				if registered.Error == nil || registered.Error.Code != rpcapi.StatusCodeInternal {
+					t.Fatalf("registration ignored Peer lookup failure: %#v", registered.Error)
+				}
+				if _, err := registrations.ResolveOwnerProfile(ctx, publicKey.String()); !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("failed lookup left an owner binding: %v", err)
+				}
+				var activations int
+				if err := registrations.DB.GetContext(ctx, &activations, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || activations != 0 {
+					t.Fatalf("failed lookup consumed activation: %d, %v", activations, err)
+				}
+			}
+		})
+	}
+}
+
+func TestRPCRegistrationRechecksConnectionAfterResolution(t *testing.T) {
+	for _, state := range []string{"deleting", "replaced"} {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+			registrations := firmwareRegistrationServer(t, "h106-profile", "h106")
+			firmwareID := "h106"
+			response, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
+				Body: &adminhttp.RegistrationTokenUpsert{
+					Id: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-profile", FirmwareId: &firmwareID,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+			if !ok {
+				t.Fatalf("CreateRegistrationToken() = %T", response)
+			}
+			peers := &peer.Server{Store: kv.NewMemory(nil), RegistrationFirmware: registrations.ResolveOwnerFirmware}
+			manager := NewManager(peers)
+			manager.RuntimeProfiles = registrations
+			publicKey := giznet.PublicKey{20}
+			conn := &trackingGiznetConn{testGiznetConn: &testGiznetConn{publicKey: publicKey}}
+			if _, err := manager.activatePeer(ctx, conn); err != nil {
+				t.Fatal(err)
+			}
+			connection := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
+			connection.initRPC()
+			mutation := &blockingDeletionMutationStore{
+				Store: peers.Store, entered: make(chan struct{}), release: make(chan struct{}),
+			}
+			reader := &admissionStore{Store: mutation}
+			peers.Store = reader
+
+			resolving, resume := make(chan struct{}), make(chan struct{})
+			resumeResolution := sync.OnceFunc(func() { close(resume) })
+			defer resumeResolution()
+			resolve := registrations.ResolveResource
+			var firstResolution atomic.Bool
+			registrations.ResolveResource = func(ctx context.Context, kind apitypes.ResourceKind, name string) (apitypes.Resource, error) {
+				if firstResolution.CompareAndSwap(false, true) {
+					close(resolving)
+					select {
+					case <-resume:
+					case <-ctx.Done():
+						return apitypes.Resource{}, ctx.Err()
+					}
+				}
+				return resolve(ctx, kind, name)
+			}
+			type registrationResult struct {
+				response *rpcapi.RPCResponse
+				err      error
+			}
+			registered := make(chan registrationResult, 1)
+			go func() {
+				response, err := connection.rpc.dispatch(ctx, registrationRequest(created.Token))
+				registered <- registrationResult{response: response, err: err}
+			}()
+			select {
+			case <-resolving:
+			case <-ctx.Done():
+				t.Fatal("registration did not reach its first firmware resolver")
+			}
+
+			switch state {
+			case "deleting":
+				deleted := make(chan error, 1)
+				go func() { deleted <- connection.rpc.deletePeerSelf(ctx) }()
+				defer func() {
+					close(mutation.release)
+					select {
+					case err := <-deleted:
+						if err != nil {
+							t.Errorf("delete Peer: %v", err)
+						}
+					case <-ctx.Done():
+						t.Error("Peer deletion did not finish after releasing its mutation")
+					}
+				}()
+				select {
+				case <-mutation.entered:
+				case <-ctx.Done():
+					t.Fatal("Peer deletion did not reach its durable mutation")
+				}
+				if !connection.isRetiring() {
+					t.Fatal("deleting connection is not retiring")
+				}
+			case "replaced":
+				replacement := &testGiznetConn{publicKey: publicKey}
+				if previous, err := manager.activatePeer(ctx, replacement); err != nil || previous != conn {
+					t.Fatalf("replace connection = %v, %v; want previous %v", previous, err, conn)
+				}
+			}
+			if conn.closed.Load() {
+				t.Fatal("test closed the old transport before registration resumed")
+			}
+			readsBefore := reader.reads.Load()
+			resumeResolution()
+			select {
+			case result := <-registered:
+				if result.err != nil || result.response == nil || result.response.Error == nil || result.response.Error.Code != rpcapi.StatusCodeUnavailable {
+					t.Fatalf("inactive connection registration = %#v, %v; want unavailable", result.response, result.err)
+				}
+			case <-ctx.Done():
+				t.Fatal("registration did not finish after firmware resolution resumed")
+			}
+			if reader.reads.Load() <= readsBefore {
+				t.Fatal("inactive connection bypassed ordinary Peer validation")
+			}
+			if conn.closed.Load() {
+				t.Fatal("registration rejection relied on transport closure")
+			}
+			if _, err := registrations.ResolveOwnerProfile(ctx, publicKey.String()); !errors.Is(err, sql.ErrNoRows) {
+				t.Fatalf("inactive registration left an owner binding: %v", err)
+			}
+			var activations int
+			if err := registrations.DB.GetContext(ctx, &activations, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || activations != 0 {
+				t.Fatalf("inactive registration consumed activation: %d, %v", activations, err)
+			}
+			if connection.registration.Load() != nil {
+				t.Fatal("inactive registration published a connection snapshot")
+			}
+		})
+	}
+}
+
 func TestRPCRegistrationRechecksCapacityAfterAdmission(t *testing.T) {
 	registrations, token := registrationServerAndToken(t, "limited")
 	response, err := registrations.PutRegistrationToken(t.Context(), adminhttp.PutRegistrationTokenRequestObject{
@@ -378,8 +588,8 @@ func (rejectingFirmwarePeer) GetSelfRuntime(context.Context, giznet.PublicKey) a
 	return apitypes.Runtime{}
 }
 
-func (rejectingFirmwarePeer) LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
-	return apitypes.Peer{}, errors.New("store unavailable")
+func (rejectingFirmwarePeer) ValidatePeerRecord(context.Context, giznet.PublicKey) error {
+	return errors.New("store unavailable")
 }
 
 func (rejectingFirmwarePeer) DeleteSelf(context.Context, giznet.PublicKey) error {

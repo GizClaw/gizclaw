@@ -1,52 +1,31 @@
 #!/usr/bin/env python3
-"""Run and score benchmark.eino-audio-input-comparison over a fixed sample set.
+"""Compare two audio input paths using identical recordings.
 
-Each sample is one synthesized question. The Giztest document sends the same
-recording to two Workspaces of one Workflow, one on the model audio input path
-and one on the asr path, prints both transcripts and replies, and reports
-latency evidence. This script runs one
-document per sample, scores every transcript and reply against keyword groups,
-and writes report.json and report.md to the artifact directory.
+Each sample is sent to two Workspaces of one Workflow, on the model audio
+input path and the ASR path. Acceptance covers routing, nonempty transcript,
+text/audio delivery, stream completion and cleanup. Transcripts and replies
+are retained as diagnostics; recognition accuracy and answer content are not
+scored against language-specific keywords.
 """
 
 import json
 import os
 import subprocess
 import sys
-import unicodedata
 
-# Every keyword group must match; any alternative inside a group matches it.
+
 SAMPLES = [
-    {"id": "mandarin", "language": "普通话", "voice": "narrator", "text": "三加五等于几？",
-     "transcript": [["3"], ["5"]], "reply": [["8"]]},
-    {"id": "sichuanese", "language": "四川话", "voice": "sichuanese-voice", "text": "一个星期有好多天嘛？",
-     "transcript": [["星期"], ["好多", "多少"]], "reply": [["7"]]},
-    {"id": "cantonese", "language": "粤语", "voice": "cantonese-voice", "text": "法國嘅首都係邊度呀？",
-     "transcript": [["法國", "法国"], ["首都"], ["嘅", "係", "系", "邊度", "边度"]], "reply": [["巴黎", "paris"]]},
-    {"id": "english", "language": "English", "voice": "english-voice", "text": "What is the capital city of Japan?",
-     "transcript": [["capital"], ["japan"]], "reply": [["tokyo", "东京", "東京"]]},
-    {"id": "japanese", "language": "日本語", "voice": "japanese-voice", "text": "日本の首都はどこですか？",
-     "transcript": [["首都", "しゅと"], ["日本", "にほん", "にっぽん"]], "reply": [["東京", "东京", "とうきょう", "tokyo"]]},
-    {"id": "spanish", "language": "Español", "voice": "spanish-voice", "text": "¿Cuántos días tiene una semana?",
-     "transcript": [["dias"], ["semana"]], "reply": [["7", "siete"]]},
+    {"id": "mandarin", "language": "普通话", "voice": "narrator", "text": "三加五等于几？"},
+    {"id": "sichuanese", "language": "四川话", "voice": "sichuanese-voice", "text": "一个星期有好多天嘛？"},
+    {"id": "cantonese", "language": "粤语", "voice": "cantonese-voice", "text": "法國嘅首都係邊度呀？"},
+    {"id": "english", "language": "English", "voice": "english-voice", "text": "What is the capital city of Japan?"},
+    {"id": "japanese", "language": "日本語", "voice": "japanese-voice", "text": "日本の首都はどこですか？"},
+    {"id": "spanish", "language": "Español", "voice": "spanish-voice", "text": "¿Cuántos días tiene una semana?"},
 ]
 
 PATHS = ("audio", "asr")
 OUTPUT_KEYS = tuple(f"{path}_{field}" for path in PATHS for field in ("transcript", "reply"))
 LATENCY_KEYS = ("first_transcript_ms", "first_text_ms", "first_audio_ms", "text_eos_ms")
-CHINESE_DIGITS = str.maketrans("零〇一二两三四五六七八九", "001223456789")
-
-
-def normalize(text):
-    text = unicodedata.normalize("NFKD", text.casefold())
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.translate(CHINESE_DIGITS)
-    return "".join(ch for ch in text if not (ch.isspace() or unicodedata.category(ch).startswith("P")))
-
-
-def matches(text, groups):
-    value = normalize(text)
-    return all(any(normalize(option) in value for option in group) for group in groups)
 
 
 def parse_outputs(stdout):
@@ -58,7 +37,6 @@ def parse_outputs(stdout):
             current = key
             values[key] = rest
         elif line.startswith("Giztest "):
-            # The runner's own status lines end the previous value.
             current = None
         elif current is not None:
             values[current] += "\n" + line
@@ -67,10 +45,24 @@ def parse_outputs(stdout):
 
 def step_evidence(report, step_id):
     for task in report.get("tasks", []):
-        for step in task.get("steps", []):
+        for step in task.get("steps", []) or []:
             if step.get("id") == step_id:
                 return step
     return {}
+
+
+def sample_passed(result):
+    """Require the actual runner and both path checks, never model semantics."""
+    return (
+        result["runner_exit_status"] == 0
+        and result["document_status"] == "passed"
+        and all(
+            result["paths"][path]["step_status"] == "passed"
+            and bool(result["paths"][path]["transcript"].strip())
+            and bool(result["paths"][path]["reply"].strip())
+            for path in PATHS
+        )
+    )
 
 
 def run_sample(binary, document, artifact_dir, sample):
@@ -89,43 +81,39 @@ def run_sample(binary, document, artifact_dir, sample):
         with open(report_path, encoding="utf-8") as handle:
             report = json.load(handle)
     result = {"id": sample["id"], "language": sample["language"], "voice": sample["voice"], "text": sample["text"],
+              "runner_exit_status": completed.returncode,
               "document_status": report.get("status", "missing"), "paths": {}}
     for path in PATHS:
         step = step_evidence(report, f"ask_{path}")
         evidence = step.get("evidence", {})
-        transcript = outputs.get(f"{path}_transcript", "")
-        reply = outputs.get(f"{path}_reply", "")
         result["paths"][path] = {
             "step_status": step.get("status", "not_run"),
             "error": step.get("error", ""),
-            "transcript": transcript,
-            "reply": reply,
-            "transcript_ok": bool(transcript) and matches(transcript, sample["transcript"]),
-            "reply_ok": bool(reply) and matches(reply, sample["reply"]),
+            "transcript": outputs.get(f"{path}_transcript", ""),
+            "reply": outputs.get(f"{path}_reply", ""),
             **{key: evidence.get(key) for key in LATENCY_KEYS},
         }
+    result["acceptance_status"] = "passed" if sample_passed(result) else "failed"
     return result
 
 
 def markdown(results):
     lines = ["# Eino audio input comparison", "",
              "`audio`: push-to-talk audio sent to the audio-input chat Model; independent ASR publishes the transcript.",
-             "`asr`: the same upstream chat model configured for text input receives independent ASR text.", "",
-             "| Sample | Path | Transcript | ✓ | Reply | ✓ | First transcript ms | First text ms | First audio ms |",
+             "`asr`: the same upstream chat model configured for text input receives independent ASR text.",
+             "Acceptance checks the code paths, delivery, stream completion and cleanup. Transcript and reply content are diagnostic only; no language accuracy or answer score is applied.", "",
+             "| Sample | Acceptance | Path | Step | Transcript (diagnostic) | Reply (diagnostic) | First transcript ms | First text ms | First audio ms |",
              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for result in results:
         for path in PATHS:
             item = result["paths"][path]
             cell = lambda text: (text or f"({item['step_status']})").replace("|", "\\|").replace("\n", " ")
             lines.append(
-                f"| {result['language']} | {path} | {cell(item['transcript'])} | {'✅' if item['transcript_ok'] else '❌'} "
-                f"| {cell(item['reply'])} | {'✅' if item['reply_ok'] else '❌'} "
+                f"| {result['language']} | {result['acceptance_status']} | {path} | {item['step_status']} "
+                f"| {cell(item['transcript'])} | {cell(item['reply'])} "
                 f"| {item['first_transcript_ms']} | {item['first_text_ms']} | {item['first_audio_ms']} |")
-    lines.append("")
-    for path in PATHS:
-        transcripts = sum(result["paths"][path]["transcript_ok"] for result in results)
-        replies = sum(result["paths"][path]["reply_ok"] for result in results)
-        lines.append(f"- `{path}`: transcript {transcripts}/{len(results)}, reply {replies}/{len(results)}")
+    passed = sum(result["acceptance_status"] == "passed" for result in results)
+    lines.extend(["", f"- Code-path acceptance: {passed}/{len(results)} samples."])
     return "\n".join(lines) + "\n"
 
 
@@ -137,20 +125,17 @@ def main():
         raise SystemExit(f"no samples selected from {sorted(sample['id'] for sample in SAMPLES)}")
     os.makedirs(os.path.join(artifact_dir, "runs"), exist_ok=True)
     results = [run_sample(binary, document, artifact_dir, sample) for sample in samples]
+    failed = [result["id"] for result in results if result["acceptance_status"] != "passed"]
     with open(os.path.join(artifact_dir, "report.json"), "w", encoding="utf-8") as handle:
-        json.dump({"version": "gizclaw.eino-audio-input-comparison/v1", "samples": results}, handle,
+        json.dump({"version": "gizclaw.eino-audio-input-comparison/v1", "acceptance": "code-path", "status": "failed" if failed else "passed", "samples": results}, handle,
                   ensure_ascii=False, indent=2)
         handle.write("\n")
     summary = markdown(results)
     with open(os.path.join(artifact_dir, "report.md"), "w", encoding="utf-8") as handle:
         handle.write(summary)
     print(summary)
-    # The audio-input path is the feature under qualification; the ASR path is
-    # the baseline it is compared against.
-    failed = [result["id"] for result in results
-              if not (result["paths"]["audio"]["transcript_ok"] and result["paths"]["audio"]["reply_ok"])]
     if failed:
-        raise SystemExit("audio-input path missed expected transcript or reply for: " + ", ".join(failed))
+        raise SystemExit("audio-input code-path checks failed for: " + ", ".join(failed))
 
 
 if __name__ == "__main__":

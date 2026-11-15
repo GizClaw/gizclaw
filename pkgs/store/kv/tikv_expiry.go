@@ -29,7 +29,7 @@ func (s *TiKV) PurgeExpired(ctx context.Context, limit int) (int, error) {
 	if limit <= 0 || limit > 1024 {
 		return 0, errors.New("kv: tikv expiry batch limit must be between 1 and 1024")
 	}
-	rediscoverMissing := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
+	rediscoverMissing := len(s.labels) > 0 && !requiresStrongReads(ctx)
 	prefix := tiKVExpiryPrefix()
 	for {
 		candidates, err := s.expiredCandidates(ctx, limit)
@@ -85,17 +85,19 @@ func (s *TiKV) PurgeExpired(ctx context.Context, limit int) (int, error) {
 }
 
 func (s *TiKV) expiredCandidates(ctx context.Context, limit int) ([][]byte, error) {
-	snapshot, err := s.snapshot(ctx)
+	view, err := s.readView(ctx, nil, nil, false)
 	if err != nil {
 		return nil, tiKVError("expiry snapshot", err)
 	}
+	defer view.close()
+	snapshot := view.snapshot
 	prefix := tiKVExpiryPrefix()
 	end := binary.BigEndian.AppendUint64(bytes.Clone(prefix), uint64(time.Now().UnixNano()))
 	end = tiKVPrefixEnd(end)
 	snapshot.SetScanBatchSize(max(2, min(limit, 256)))
 	it, err := snapshot.Iter(prefix, end)
 	if err != nil {
-		return nil, tiKVError("scan expiry", err)
+		return nil, tiKVError("scan expiry", view.readError(err))
 	}
 	defer it.Close()
 	var candidates [][]byte
@@ -108,7 +110,7 @@ func (s *TiKV) expiredCandidates(ctx context.Context, limit int) ([][]byte, erro
 			break
 		}
 		if err := it.Next(); err != nil {
-			return nil, tiKVError("scan expiry next", err)
+			return nil, tiKVError("scan expiry next", view.readError(err))
 		}
 	}
 	return candidates, ctx.Err()

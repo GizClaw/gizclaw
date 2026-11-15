@@ -170,11 +170,18 @@ func TestIntegrationSharedRedisPresence(t *testing.T) {
 	}
 	wantRoom = false
 	assertRemote(false)
+	// Closing the whole reader also makes the relationship inventory unavailable.
+	// Reject that query; only a Presence-only failure can decorate a valid page
+	// as offline. An available writer must not become a read fallback.
 	if err := clients[0].Close(); err != nil {
 		t.Fatal(err)
 	}
-	friends, err := owner.client.ListFriends(t.Context(), "presence-reader-failure", rpcapi.FriendListRequest{})
-	if err != nil || len(friends.Items) != 1 || friends.Items[0].Online == nil || *friends.Items[0].Online || friends.Items[0].LastSeenAt != nil {
-		t.Fatalf("reader failure must not fall back to SQL or primary: %+v, %v", friends, err)
+	if err := clients[1].Ping(t.Context()).Err(); err != nil {
+		t.Fatalf("writer must remain healthy during reader outage: %v", err)
 	}
+	friends, err := owner.client.ListFriends(t.Context(), "presence-reader-failure", rpcapi.FriendListRequest{})
+	if err == nil {
+		t.Fatalf("closed reader must fail without SQL or writer fallback: %+v", friends)
+	}
+	t.Logf("closed reader rejected while writer remained healthy: %v", err)
 }

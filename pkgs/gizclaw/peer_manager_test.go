@@ -342,7 +342,7 @@ func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T)
 	if err := <-ensureErr; !errors.Is(err, ErrPeerConnRetiring) && !errors.Is(err, ErrPeerConnNotActive) {
 		t.Fatalf("blocked replacement ensure error = %v, want retiring or inactive", err)
 	}
-	if _, err := peers.LoadPeer(context.Background(), key); err != nil {
+	if _, err := peers.LoadPeer(context.Background(), key); !errors.Is(err, peer.ErrPeerDeleted) {
 		t.Fatalf("LoadPeer after delete and rejected replacement: %v", err)
 	}
 	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, key.String()); err != nil || !pending {

@@ -2,12 +2,156 @@ package pendingdeletion
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestKVTaskExecutionCountEncoding(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		raw  json.RawMessage
+		want int
+	}{
+		{name: "legacy"},
+		{name: "persisted", raw: json.RawMessage("7"), want: 7},
+		{name: "negative", raw: json.RawMessage("-1")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := kv.NewMemory(nil)
+			record, err := New(KindPeer, "execution-count", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := CreateOrGet(t.Context(), store, record); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := store.Get(t.Context(), kvTaskKey(record.DeletionID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var state map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &state); err != nil {
+				t.Fatal(err)
+			}
+			delete(state, "execution_count")
+			if test.raw != nil {
+				state["execution_count"] = test.raw
+			}
+			raw, err = json.Marshal(state)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.Set(t.Context(), kvTaskKey(record.DeletionID), raw); err != nil {
+				t.Fatal(err)
+			}
+			source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			task, err := source.GetTask(t.Context(), record.DeletionID)
+			if test.name == "negative" {
+				if !errors.Is(err, ErrInvalid) {
+					t.Fatalf("negative persisted count = %v, want ErrInvalid", err)
+				}
+				return
+			}
+			if err != nil || task.ExecutionCount != test.want {
+				t.Fatalf("decoded task = %#v, %v", task, err)
+			}
+			claim, ok, err := source.Claim(t.Context(), Reference{Source: source.Name(), DeletionID: record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}, time.Unix(2, 0), time.Minute)
+			if err != nil || !ok || claim.ExecutionCount != test.want {
+				t.Fatalf("claim = %#v, %v, %v", claim, ok, err)
+			}
+			raw, err = store.Get(t.Context(), kvTaskKey(record.DeletionID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var persisted struct {
+				ExecutionCount *int `json:"execution_count"`
+			}
+			if err := json.Unmarshal(raw, &persisted); err != nil {
+				t.Fatal(err)
+			}
+			if persisted.ExecutionCount == nil || *persisted.ExecutionCount != test.want {
+				t.Fatalf("encoded execution count not preserved: %s", raw)
+			}
+		})
+	}
+}
+
+func TestKVTaskExecutionCountUsesCommittedTransitions(t *testing.T) {
+	for _, transition := range []string{"defer", "fail"} {
+		for _, outcome := range []string{"cas retry", "rejected", "uncertain"} {
+			t.Run(transition+"/"+outcome, func(t *testing.T) {
+				writer, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+				record, err := New(KindPeer, "count-cas", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, _, err := CreateOrGet(t.Context(), writer, record); err != nil {
+					t.Fatal(err)
+				}
+				authority := KVSource{Store: writer, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+				task, err := authority.GetTask(t.Context(), record.DeletionID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				claim, ok, err := authority.Claim(t.Context(), Reference{Source: authority.Name(), DeletionID: record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}, time.Unix(2, 0), time.Minute)
+				if err != nil || !ok {
+					t.Fatalf("Claim = %v, %v", ok, err)
+				}
+				raw, err := encodeKVTaskState(claim.Task)
+				if err != nil {
+					t.Fatal(err)
+				}
+				entries, err := KVEntries(record)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := replica.BatchSet(t.Context(), append(entries, kv.Entry{Key: kvTaskKey(record.DeletionID), Value: raw})); err != nil {
+					t.Fatal(err)
+				}
+				if err := authority.Renew(t.Context(), claim, time.Unix(3, 0), 2*time.Minute); err != nil {
+					t.Fatal(err)
+				}
+				store := &laggingTaskStore{Store: writer, replica: replica, reject: outcome == "rejected"}
+				if outcome == "uncertain" {
+					store.commitError = errors.New("transition commit response lost")
+				}
+				source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+				apply := func() error {
+					if transition == "defer" {
+						return source.Defer(t.Context(), claim, "waiting", "safe wait", time.Unix(10, 0), time.Unix(4, 0))
+					}
+					return source.Fail(t.Context(), claim, "temporary", "temporary", false, time.Unix(10, 0), time.Unix(4, 0), 3)
+				}
+				err = apply()
+				wantErr, wantCount, wantMutations := error(nil), 1, 2
+				if outcome == "rejected" {
+					wantErr, wantCount, wantMutations = ErrConflict, 0, 4
+				} else if outcome == "uncertain" {
+					wantErr = store.commitError
+				}
+				if !errors.Is(err, wantErr) || store.mutations != wantMutations {
+					t.Fatalf("transition = %v, mutations=%d; want %v, %d", err, store.mutations, wantErr, wantMutations)
+				}
+				if outcome != "rejected" {
+					if err := apply(); !errors.Is(err, ErrConflict) {
+						t.Fatalf("replayed transition = %v, want ErrConflict", err)
+					}
+				}
+				current, err := authority.GetTask(t.Context(), record.DeletionID)
+				if err != nil || current.ExecutionCount != wantCount {
+					t.Fatalf("committed execution count = %#v, %v; want %d", current, err, wantCount)
+				}
+				if outcome == "rejected" && current.Status != StatusRunning || outcome != "rejected" && current.Status != StatusRetryWait {
+					t.Fatalf("count/state not committed together: %#v", current)
+				}
+			})
+		}
+	}
+}
 
 func TestKVTaskDoesNotRebuildMissingState(t *testing.T) {
 	store := kv.NewMemory(nil)
@@ -74,8 +218,11 @@ func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 			if err := source.Defer(ctx, claim, "waiting", "safe wait", time.Unix(3, 0), time.Unix(2, 0)); err != nil {
 				t.Fatalf("Defer() = %v", err)
 			}
+			if err := source.Defer(ctx, claim, "waiting", "duplicate", time.Unix(3, 0), time.Unix(2, 0)); !errors.Is(err, ErrConflict) {
+				t.Fatalf("duplicate Defer() = %v, want ErrConflict", err)
+			}
 			deferred, err := source.GetTask(ctx, record.DeletionID)
-			if err != nil || deferred.Status != StatusRetryWait || deferred.FailureCount != 0 {
+			if err != nil || deferred.Status != StatusRetryWait || deferred.FailureCount != 0 || deferred.ExecutionCount != 1 {
 				t.Fatalf("GetTask(deferred) = %#v, %v", deferred, err)
 			}
 			refs, _, err = source.ScanDue(ctx, time.Unix(4, 0), 10, "")
@@ -94,8 +241,11 @@ func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 			if err := source.Fail(ctx, claim, "temporary", "temporary", false, time.Unix(5, 0), time.Unix(4, 0), 3); err != nil {
 				t.Fatalf("Fail(current) = %v", err)
 			}
+			if err := source.Fail(ctx, claim, "temporary", "duplicate", false, time.Unix(5, 0), time.Unix(4, 0), 3); !errors.Is(err, ErrConflict) {
+				t.Fatalf("duplicate Fail() = %v, want ErrConflict", err)
+			}
 			task, err := source.GetTask(ctx, record.DeletionID)
-			if err != nil || task.Status != StatusRetryWait || task.FailureCount != 1 {
+			if err != nil || task.Status != StatusRetryWait || task.FailureCount != 1 || task.ExecutionCount != 2 {
 				t.Fatalf("GetTask() = %#v, %v", task, err)
 			}
 			refs, _, err = source.ScanDue(ctx, time.Unix(6, 0), 10, "")
@@ -106,8 +256,11 @@ func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 			if err != nil || !claimed {
 				t.Fatalf("Claim(retry) = %#v, %v, %v", claim, claimed, err)
 			}
+			if err := source.Renew(ctx, claim, time.Unix(6, 0), 2*time.Minute); err != nil {
+				t.Fatalf("Renew(after failure) = %v", err)
+			}
 			claim, err = source.Checkpoint(ctx, claim, PhaseFinalize, time.Unix(6, 0))
-			if err != nil || claim.Phase != PhaseFinalize {
+			if err != nil || claim.Phase != PhaseFinalize || claim.ExecutionCount != 2 {
 				t.Fatalf("Checkpoint() = %#v, %v", claim, err)
 			}
 			wrongGeneration := claim
@@ -122,7 +275,7 @@ func TestKVTaskTransitionsUseAtomicGuards(t *testing.T) {
 				t.Fatalf("Retry() = %v", err)
 			}
 			task, err = source.GetTask(ctx, record.DeletionID)
-			if err != nil || task.Status != StatusQueued || task.Phase != PhaseFinalize || task.FailureCount != 0 || task.LastErrorCode != "" {
+			if err != nil || task.Status != StatusQueued || task.Phase != PhaseFinalize || task.FailureCount != 0 || task.LastErrorCode != "" || task.ExecutionCount != 3 {
 				t.Fatalf("GetTask(after retry) = %#v, %v", task, err)
 			}
 			if _, err := source.Retry(ctx, record.DeletionID, time.Unix(8, 0)); !errors.Is(err, ErrConflict) {
@@ -237,12 +390,14 @@ func TestKVFinalizeRejectsUnsafeDomainKeys(t *testing.T) {
 }
 
 func TestConditionalFailedRetryRejectsNewFailureAndGeneration(t *testing.T) {
-	for _, change := range []string{"unchanged", "new_failure", "new_generation"} {
+	for _, change := range []string{"unchanged", "new_failure", "new_generation", "execution_count"} {
 		t.Run(change, func(t *testing.T) {
 			source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
 			now := time.Now().Add(-time.Minute)
 			observed := seedFailedRecoveryTask(t, source, "conditional-recovery", now)
-			if change != "unchanged" {
+			if change == "execution_count" {
+				observed.ExecutionCount--
+			} else if change != "unchanged" {
 				if _, err := source.Retry(t.Context(), observed.Record.DeletionID, now.Add(2*time.Second)); err != nil {
 					t.Fatal(err)
 				}
@@ -265,7 +420,7 @@ func TestConditionalFailedRetryRejectsNewFailureAndGeneration(t *testing.T) {
 			}
 			retried, err := source.RetryFailed(t.Context(), observed, time.Now())
 			if change == "unchanged" {
-				if err != nil || retried.Status != StatusQueued || retried.Phase != PhaseFinalize || retried.FailureCount != 0 {
+				if err != nil || retried.Status != StatusQueued || retried.Phase != PhaseFinalize || retried.FailureCount != 0 || retried.ExecutionCount != observed.ExecutionCount {
 					t.Fatalf("retry=%+v, %v", retried, err)
 				}
 				if _, err := source.RetryFailed(t.Context(), observed, time.Now()); !errors.Is(err, ErrConflict) {

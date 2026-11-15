@@ -62,6 +62,10 @@ type Task struct {
 	LastErrorCode     string
 	LastErrorMessage  string
 	UpdatedAt         time.Time
+
+	// ExecutionCount counts attempts committed by KVSource.Defer or KVSource.Fail.
+	// Lease changes, checkpoints and explicit retries preserve this count.
+	ExecutionCount int
 }
 
 // Reference is one due task observation. Observations are not claims.
@@ -112,6 +116,15 @@ type SourceStats interface {
 type Handler interface {
 	Kind() Kind
 	Handle(context.Context, Claim) error
+}
+
+// RetryPolicy optionally customizes a handler's retryable failure scheduling.
+// RetryPolicy returns a fixed interval measured from attempt completion and a
+// minimum failure limit. A nonpositive interval keeps the processor's backoff;
+// the failure limit never reduces Config.MaxAttempts. Deferred outcomes retain
+// their own delay, and terminal outcomes still require explicit recovery.
+type RetryPolicy interface {
+	RetryPolicy() (time.Duration, int)
 }
 
 // TaskAdmission is an optional read-only safety check before claim and retry.
@@ -240,6 +253,9 @@ func validateTaskState(task Task) error {
 	}
 	if task.FailureCount < 0 {
 		return fmt.Errorf("%w: negative failure count", ErrInvalid)
+	}
+	if task.ExecutionCount < 0 {
+		return fmt.Errorf("%w: negative execution count", ErrInvalid)
 	}
 	if task.UpdatedAt.IsZero() {
 		return fmt.Errorf("%w: empty updated time", ErrInvalid)

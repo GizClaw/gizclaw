@@ -3,7 +3,9 @@ package peer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -17,6 +19,158 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
+
+func TestPeerDeletionAdoptsLegacyRequestWithoutChangingMarkerPlanOrLease(t *testing.T) {
+	for _, scenario := range []string{"no_plan", "current_plan", "projection_plan", "unsupported_plan", "legacy_children", "replacement_plan", "invalid_plan", "conflicting_snapshot"} {
+		t.Run(scenario, func(t *testing.T) {
+			ctx, key := t.Context(), giznet.PublicKey{103}
+			store := kv.NewMemory(nil)
+			server := &Server{Store: store, ServerPublicKey: giznet.PublicKey{100}}
+			saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+			raw, err := store.Get(ctx, peerKey(key.String()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var formatted bytes.Buffer
+			if err := json.Indent(&formatted, raw, "", "  "); err != nil {
+				t.Fatal(err)
+			}
+			raw = formatted.Bytes()
+			if err := store.Set(ctx, peerKey(key.String()), raw); err != nil {
+				t.Fatal(err)
+			}
+			peer, err := decodePeer(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			record, err := pendingdeletion.New(pendingdeletion.KindPeer, key.String(), new(key.String()), pendingdeletion.ReasonPeerDelete, peerDeletionDescriptor{PublicKey: key.String()}, time.Now().UTC())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, created, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil || !created {
+				t.Fatalf("legacy request = %v, %v", created, err)
+			}
+			fingerprint, err := pendingdeletion.Fingerprint(record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source := PendingDeletionSource(store)
+			now := record.DeletedAt.Add(time.Second)
+			claim := claimPeerDeletion(t, source, now)
+			if err := source.Fail(ctx, claim, "store_error", "prior attempt", false, now.Add(time.Hour), now, 32); err != nil {
+				t.Fatal(err)
+			}
+			now = now.Add(time.Hour)
+			claim = claimPeerDeletion(t, source, now)
+			before, err := source.GetTask(ctx, record.DeletionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var planData []byte
+			wantSuccess := true
+			if scenario != "no_plan" && scenario != "conflicting_snapshot" {
+				plan := retirementPlan{Version: retirementPlanVersion, HomeServer: server.ServerPublicKey.String(), PeerFingerprint: peerFingerprint(raw), MarkerFingerprint: fingerprint, Peer: peer, PeerRecord: raw}
+				plan.Social.PublicKey, plan.Workspaces.PublicKey = key.String(), key.String()
+				switch scenario {
+				case "projection_plan":
+					plan.Version, plan.PeerRecord = 2, nil
+					plan.Peer.FirmwareId = new("projected-firmware")
+				case "unsupported_plan":
+					plan.Version, wantSuccess = 1, false
+				case "legacy_children":
+					plan.Version, plan.PeerRecord, plan.WorkspaceIDs, wantSuccess = 2, nil, []string{"unproven-child"}, false
+				case "replacement_plan":
+					plan.Peer.UpdatedAt = plan.Peer.UpdatedAt.Add(time.Second)
+					wantSuccess = false
+				case "invalid_plan":
+					wantSuccess = false
+				}
+				planData, err = json.MarshalIndent(plan, "", "  ")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "invalid_plan" {
+					planData = []byte(`{"version":`)
+				}
+				if err := store.Set(ctx, peerRetirementPlanKey(record.DeletionID), planData); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "conflicting_snapshot" {
+				wantSuccess = false
+				if err := store.Set(ctx, peerDeletionSnapshotKey(record.DeletionID), []byte(`{"marker_fingerprint":"wrong","peer_record":""}`)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = server.DeleteSelf(ctx, key)
+			if (err == nil) != wantSuccess {
+				t.Fatalf("legacy admission = %v, success wanted %v", err, wantSuccess)
+			}
+			after, err := source.GetTask(ctx, record.DeletionID)
+			if err != nil || !reflect.DeepEqual(before, after) {
+				t.Fatalf("admission changed marker, counters or active lease: before=%+v after=%+v error=%v", before, after, err)
+			}
+			if len(planData) != 0 {
+				stored, err := store.Get(ctx, peerRetirementPlanKey(record.DeletionID))
+				if err != nil || !bytes.Equal(stored, planData) {
+					t.Fatalf("admission rewrote plan evidence: %q, %v", stored, err)
+				}
+			}
+			stored, err := store.Get(ctx, peerKey(key.String()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !wantSuccess {
+				if !bytes.Equal(stored, raw) {
+					t.Fatal("unsafe adoption replaced the original Peer")
+				}
+				return
+			}
+			if !isPeerTombstone(stored) {
+				t.Fatalf("legacy admission retained active Peer: %s", stored)
+			}
+			data, err := store.Get(ctx, peerDeletionSnapshotKey(record.DeletionID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			snapshot, err := validatePeerDeletionSnapshot(data, record)
+			if err != nil || !bytes.Equal(snapshot, raw) {
+				t.Fatalf("original exact Peer bytes lost: %q, %v", snapshot, err)
+			}
+			base := &peerDeletionAdapters{publicKey: key.String()}
+			handler := DeletionHandler{Server: server, Source: source, Assignments: testDeletionAssignments{}, Social: base, Workspaces: base, APIKeys: base, RuntimeProfiles: base, Memory: base, Quiescer: base, WorkspaceLookup: emptyPeerLookup{}, FriendGroupLookup: emptyPeerLookup{}, Now: func() time.Time { return now }}
+			if err := handler.CheckTask(ctx, claim.Task); err != nil {
+				t.Fatalf("cleanup cannot read adopted snapshot: %v", err)
+			}
+			if scenario != "no_plan" {
+				return
+			}
+			finished := false
+			for range 32 {
+				err := handler.Handle(ctx, claim)
+				if err == nil {
+					finished = true
+					break
+				}
+				var outcome *pendingdeletion.OutcomeError
+				if !errors.As(err, &outcome) || outcome.Class != pendingdeletion.OutcomeDeferred || outcome.After != time.Hour {
+					t.Fatal(err)
+				}
+				if err := source.Defer(ctx, claim, outcome.Code, outcome.Message, now.Add(time.Hour), now); err != nil {
+					t.Fatal(err)
+				}
+				now = now.Add(time.Hour)
+				claim = claimPeerDeletion(t, source, now)
+			}
+			if !finished {
+				t.Fatal("legacy cleanup did not finish after 32 actual attempts")
+			}
+			if _, err := store.Get(ctx, peerDeletionSnapshotKey(record.DeletionID)); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("guarded finalization retained adoption metadata: %v", err)
+			}
+		})
+	}
+}
 
 func TestStoreOpsHelpers(t *testing.T) {
 	server := &Server{}
@@ -581,8 +735,16 @@ func TestPeerDeleteUsesExactRawGuardBeforeFirmwareProjection(t *testing.T) {
 	if err != nil || projected.FirmwareId == nil || *projected.FirmwareId != "sql-firmware" || store.attempts.Load() != 1 || store.primary.Load() != 0 {
 		t.Fatalf("raw deletion guard: %+v %v writes=%d primary=%d", projected, err, store.attempts.Load(), store.primary.Load())
 	}
-	if current, err := authority.Get(ctx, peerKey(key.String())); err != nil || !bytes.Equal(current, raw) {
-		t.Fatalf("deletion changed raw Peer: %v", err)
+	if current, err := authority.Get(ctx, peerKey(key.String())); err != nil || !isPeerTombstone(current) {
+		t.Fatalf("deletion did not publish the tombstone: %v", err)
+	}
+	record, err := pendingdeletion.GetByLocator(ctx, authority, pendingdeletion.KindPeer, key.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var descriptor peerDeletionDescriptor
+	if err := json.Unmarshal(record.Descriptor, &descriptor); err != nil || !bytes.Equal(descriptor.PeerRecord, raw) {
+		t.Fatalf("deletion did not retain exact unprojected bytes: %+v, %v", descriptor, err)
 	}
 }
 
