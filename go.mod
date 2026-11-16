@@ -6,7 +6,7 @@ replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-202611031719
 
 replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260930230747-1193df5bc2d8
 
-replace github.com/tikv/client-go/v2 => github.com/GizClaw/tikv-client-go/v2 v2.0.0-20261016033931-138b7bc0a26a
+replace github.com/tikv/client-go/v2 => github.com/GizClaw/tikv-client-go/v2 v2.0.0-20261115072309-292910b31a9f
 
 require (
 	cloud.google.com/go/storage v1.68.0

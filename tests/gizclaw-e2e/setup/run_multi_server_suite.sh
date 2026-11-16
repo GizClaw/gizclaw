@@ -11,7 +11,7 @@ if (($# != 1)); then
   echo 'internal runner requires one fixed suite name' >&2; exit 2
 fi
 suite="$1"
-case "$suite" in full | native-tikv-lag | tikv-contention | tikv-usage-giztest | social-ping) ;; *) echo 'unsupported multi-server suite' >&2; exit 2 ;; esac
+case "$suite" in full | native-tikv-lag | tikv-contention | tikv-usage-giztest | tikv-read-routing | social-ping) ;; *) echo 'unsupported multi-server suite' >&2; exit 2 ;; esac
 if [[ -n "${GIZCLAW_E2E_NATIVE_ONLY+x}" || -n "${GIZCLAW_E2E_TEST_RUN+x}" ]]; then
   echo 'Coverage selectors are unsupported; use a dedicated test entrypoint' >&2; exit 2
 fi
@@ -35,8 +35,8 @@ tikv_contention=0
 native_only=0
 tikv_usage=0
 export GIZCLAW_E2E_TIKV_CONTENTION_ONLY=0 GIZCLAW_E2E_SOCIAL_PING_ONLY=0
-export GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS= GIZCLAW_E2E_TIKV_USAGE_ADDRESS=
-export GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_A= GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_B=
+export GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS='' GIZCLAW_E2E_TIKV_USAGE_ADDRESS=''
+export GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_A='' GIZCLAW_E2E_TIKV_USAGE_ADMIN_PRIVATE_KEY_B=''
 case "$suite" in
   native-tikv-lag) native_only=1 ;;
   tikv-contention)
@@ -55,6 +55,9 @@ if [[ "$suite" != full && ( -n "$sfu_case" || -n "${GIZCLAW_E2E_SFU_BINARY:-}" )
   echo 'Dedicated suites cannot select an SFU case or alternate binary' >&2; exit 2
 fi
 compose_files=(-f "$compose_file")
+if [[ "$suite" == tikv-read-routing ]]; then
+  compose_files+=(-f "$script_dir/docker/compose.tikv-read-routing.yaml")
+fi
 if [[ ! "$sfu_delay" =~ ^(0|[1-9][0-9]{0,4})$ ]] || ((sfu_delay > 10000)); then
   echo "SFU terminal delay must be 0..10000 milliseconds" >&2; exit 2
 fi
@@ -118,7 +121,9 @@ provider_credentials=(
   GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY
 )
 GIZCLAW_E2E_SFU_PROVIDER=0
-if [[ "$tikv_usage" == 1 ]]; then
+if [[ "$suite" == tikv-read-routing ]]; then
+  echo '==> provider-free two-label Learner read-routing Giztest'
+elif [[ "$tikv_usage" == 1 ]]; then
   echo '==> provider-free TiKV usage Giztest scenarios'
 elif [[ "$native_only" == 1 ]]; then
   echo '==> provider-free native multi-server tests'
@@ -215,6 +220,16 @@ PY
     compose logs --no-color --tail 800 2>&1 \
       | python3 -B "$script_dir/setup/redact_diagnostics.py" >&2 || true
   fi
+  if [[ "$suite" == tikv-read-routing ]]; then
+    compose logs --no-color 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" > "$report_dir/services.log" || true
+    for service in tikv-leader tikv-learner tikv-learner-remote server-a server-b; do
+      container="$(compose ps -a -q "$service")"
+      if [[ -n "$container" ]]; then
+        printf '%s ' "$service" >> "$report_dir/process-health.txt"
+        docker inspect --format '{{.State.Running}} {{.RestartCount}}' "$container" >> "$report_dir/process-health.txt" || true
+      fi
+    done
+  fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
   if [[ -n "$probe_dir" ]]; then
     rm -rf "$probe_dir"
@@ -230,7 +245,13 @@ bash "$script_dir/setup/prepare-tikv.sh"
 report_dir="$(cd "$report_dir" && pwd -P)"
 export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
 probe_mount=(-e GIZCLAW_E2E_SFU_PROBE_OVERLAY=)
-if [[ "$tikv_usage" == 1 ]]; then
+if [[ "$suite" == tikv-read-routing ]]; then
+  probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-tikv-routing.XXXXXX")"
+  python3 -B "$script_dir/setup/prepare-tikv-read-routing.py" "$repo_root" "$probe_dir"
+  cp "$probe_dir/injection.patch" "$report_dir/read-routing-observer.patch"
+  cp "$probe_dir/read-routing-source.json" "$report_dir/read-routing-source.json"
+  probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
+elif [[ "$tikv_usage" == 1 ]]; then
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-tikv-usage.XXXXXX")"
   python3 -B "$script_dir/setup/prepare-tikv-usage-probe.py" "$repo_root" "$probe_dir"
   cp "$probe_dir/injection.patch" "$report_dir/tikv-usage-probe.patch"
@@ -253,11 +274,12 @@ elif [[ "$sfu_case" == logging* ]]; then
 fi
 module_cache="$(go env GOMODCACHE)"
 build_cache="$(go env GOCACHE)"
-if [[ "$tikv_contention" == 1 || "$tikv_usage" == 1 || "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]] || [[ -n "$sfu_case" && -z "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
+if [[ "$suite" == tikv-read-routing || "$tikv_contention" == 1 || "$tikv_usage" == 1 || "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]] || [[ -n "$sfu_case" && -z "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
   docker run --rm --entrypoint /bin/bash \
     -v "$repo_root:/src" \
     -v "$module_cache:/root/go/pkg/mod" \
     -v "$build_cache:/root/.cache/go-build" \
+    -e "GIZCLAW_E2E_TIKV_READ_ROUTING_BUILD=$([[ "$suite" == tikv-read-routing ]] && echo 1 || echo 0)" \
     "${probe_mount[@]}" \
     "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" \
     -lc 'cd /src \
@@ -266,7 +288,9 @@ if [[ "$tikv_contention" == 1 || "$tikv_usage" == 1 || "${GIZCLAW_E2E_REUSE_BINA
       && if [[ -n "${GIZCLAW_E2E_SFU_PROBE_OVERLAY:-}" ]]; then probe_args=(-overlay "$GIZCLAW_E2E_SFU_PROBE_OVERLAY"); fi \
       && go build "${probe_args[@]}" -o tests/gizclaw-e2e/testdata/bin/gizclaw-linux ./cmd/gizclaw \
       && go build -o tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux ./tests/gizclaw-e2e/cmd/multiserver-seed \
-      && go test -c -tags gizclaw_e2e -o tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux ./tests/gizclaw-e2e/go/multiserver'
+      && test_probe_args=() \
+      && if [[ "${GIZCLAW_E2E_TIKV_READ_ROUTING_BUILD:-0}" == 1 ]]; then test_probe_args=("${probe_args[@]}"); fi \
+      && go test "${test_probe_args[@]}" -c -tags gizclaw_e2e -o tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux ./tests/gizclaw-e2e/go/multiserver'
 fi
 if [[ -n "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
   : "${GIZCLAW_E2E_SFU_BINARY_REVISION:?identify the supplied baseline binary revision}"
@@ -328,7 +352,7 @@ pathlib.Path(report).write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", repository, "rev-parse", "HEAD"], text=True).strip(),
     "source_diff_sha256": hashlib.sha256(diff).hexdigest(),
     "binary_sha256": {pathlib.Path(p).name: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in [server, tests, seed]},
-    "topology": "2 Servers, 2 Edges, LiveKit, PD, center voter, regional Learner with Raft gate; separate local SQL databases",
+    "topology": ("2 Servers with distinct read labels, 2 Edges, LiveKit, PD, center voter, local and remote Learners; separate local SQL databases" if suite == "tikv-read-routing" else "2 Servers, 2 Edges, LiveKit, PD, center voter, regional Learner with Raft gate; separate local SQL databases"),
     "provider_scenarios_enabled": bool(int(provider)),
 }, indent=2) + "\n")
 PY
@@ -372,12 +396,13 @@ if [[ -z "$sfu_case" && "$tikv_usage" == 0 ]]; then
   case "$suite" in
     native-tikv-lag) test_run='^TestTiKVLearnerLagThroughBothEdges$' ;;
     tikv-contention) test_run='^TestConcurrentServersResolveResidualSecondary$' ;;
+    tikv-read-routing) test_run='^TestTiKVReadRoutingControls$' ;;
     social-ping) test_run='^TestSocialPingCrossServer$' ;;
   esac
   compose run --rm -T tests \
     -test.run "$test_run" -test.parallel 1 -test.timeout=10m | tee "$report_dir/go-tests.log" || {
     go_status=$?
-    if [[ "$suite" != full ]]; then exit "$go_status"; fi
+    if [[ "$suite" != full && "$suite" != tikv-read-routing ]]; then exit "$go_status"; fi
     echo "Go multi-server tests failed (exit status $go_status); continuing with SFU scenarios" >&2
   }
 fi
@@ -534,6 +559,15 @@ if [[ "$GIZCLAW_E2E_SFU_PROVIDER" == 1 ]]; then
   )
 else
   echo "==> provider-gated SFU scenarios skipped (GIZCLAW_E2E_SFU_PROVIDER=0)"
+fi
+if [[ "$suite" == tikv-read-routing ]]; then
+  # Fixed independent stories; each mutation executes once. The existing
+  # documents retain their assertion-only visibility waits and cleanup.
+  scenarios=(
+    "$giztest_dir/sfu.friend.cross-server.audio-bytes.giztest.yaml"
+    "$giztest_dir/sfu.friend-group.delete-recreate.audio-bytes.giztest.yaml"
+    "$giztest_dir/sfu.friend-group.members-in-room.giztest.yaml"
+  )
 fi
 if [[ -n "$sfu_case" ]]; then
   scenarios=(/reports/sfu-case.giztest.yaml)

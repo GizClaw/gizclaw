@@ -580,6 +580,14 @@ GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
+双标签 Learner 读路由使用独立的固定入口：
+
+```sh
+bash tests/gizclaw-e2e/run_tikv_read_routing_tests.sh
+```
+
+该入口在相同隔离拓扑中增加第二个健康 Learner，让 Server A/B 使用不同的 `read_labels`。PD 验证每个 Region 的中心 voter 和两个带标签的 Learner。独立 KV client 先只读等待记录和成员可见，再验证 Get/BatchGet 及每标签十二次集合扫描；不匹配标签的对照仍须被 strict guard 拒绝。随后原样运行好友音频、群组删除重建音频和成员 Room 状态 giztest，保留有界 assertion-only 等待和单次 mutation。构建时 overlay 只记录生产 guard 看到的 peer/store 标签，不改变路由或响应。报告、拓扑、源码/二进制摘要、路由观测和进程状态保存在本次忽略的 `testdata/multi-server/<project>/`；退出仅清理本次 Compose 资源。不需要 Provider 凭据，不发布宿主端口。这一手动入口补充 SDK 的反向扫描、冷 cache 与重试选择测试，不验收 WAN 行为或生产容量。
+
 双 Server 并发创建同一 Peer 的遗留锁回归可单独运行：
 
 ```sh
