@@ -50,7 +50,7 @@ require (
 	github.com/openai/openai-go v1.12.0
 	github.com/pingcap/kvproto v0.0.0-20261006010420-121875fd9777
 	github.com/pingcap/log v1.1.1-0.20221110025148-ca232912c9f3
-	github.com/pion/datachannel v1.6.3
+	github.com/pion/datachannel v1.6.4
 	github.com/pion/ice/v4 v4.4.4
 	github.com/pion/interceptor v0.1.49
 	github.com/pion/logging v0.2.4
@@ -210,11 +210,11 @@ require (
 	github.com/pion/mdns/v2 v2.2.1 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.18 // indirect
-	github.com/pion/sctp v1.12.0 // indirect
+	github.com/pion/sctp v1.12.1 // indirect
 	github.com/pion/stun/v3 v3.1.7 // indirect
 	github.com/pion/stun/v4 v4.0.1 // indirect
 	github.com/pion/transport/v4 v4.1.0 // indirect
-	github.com/pion/transport/v5 v5.1.1 // indirect
+	github.com/pion/transport/v5 v5.1.4 // indirect
 	github.com/pion/turn/v5 v5.1.2 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
