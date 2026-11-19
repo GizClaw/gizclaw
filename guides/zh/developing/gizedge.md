@@ -320,6 +320,8 @@ context。请求取消或到期后立即退出等待，不延用 Edge 进程的�
 
 Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 active-channel 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。
 
+当可达 Server 拒绝 Peer 路由时，Edge 停止选择上游。Listener 验证加密 offer 后返回 `403 peer_forbidden`。已封禁和退役中的 Peer 共用此响应。清理客户端应取得独立的删除确认，再清除恢复记录。缺少 assignment 的新 Peer 仍可在应答 Server 上首次接入。
+
 每个 session 默认有 1 MiB reliable-write budget，单 channel 最多占一半，为 sibling
 Event/RPC 保留进度；association budget 是 32 MiB。reservation 要等 DataChannel
 `BufferedAmount` 排空后释放，不会因为暂时背压而截断 firmware 等大文件。

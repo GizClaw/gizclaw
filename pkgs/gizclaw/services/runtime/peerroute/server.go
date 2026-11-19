@@ -21,7 +21,10 @@ var (
 	ErrMissingRoute       = errors.New("peerroute: server route not configured")
 	ErrVersionConflict    = errors.New("peerroute: assignment version conflict")
 	ErrPeerInactive       = errors.New("peerroute: peer is not active")
-	ErrPeerNotAssignable  = errors.New("peerroute: peer role is not assignable")
+	// ErrPeerBlocked is an explicit denial. Consumers treating all inactive
+	// owners alike can still use errors.Is(err, ErrPeerInactive).
+	ErrPeerBlocked       = fmt.Errorf("%w: blocked", ErrPeerInactive)
+	ErrPeerNotAssignable = errors.New("peerroute: peer role is not assignable")
 )
 
 // PeerStore reads Peer authority and checks current deletion fences.
@@ -62,6 +65,9 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	peer, err := s.Peers.LoadPeer(ctx, target)
 	if err != nil {
 		return apitypes.PeerAssignment{}, err
+	}
+	if peer.Status == apitypes.PeerRegistrationStatusBlocked {
+		return apitypes.PeerAssignment{}, ErrPeerBlocked
 	}
 	if err := validateAssignablePeer(peer); err != nil {
 		return apitypes.PeerAssignment{}, err

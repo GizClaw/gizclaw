@@ -286,19 +286,23 @@ func (g *Gateway) serveSignaling(w http.ResponseWriter, r *http.Request) {
 	admission.remoteAddr = r.RemoteAddr
 	r = r.WithContext(context.WithValue(r.Context(), gatewayAdmissionContextKey{}, admission))
 	entry, release, err := g.acquirePeerUpstream(r.Context(), clientKey)
-	if err != nil {
+	if err != nil && !errors.Is(err, errPeerRouteDenied) {
 		gizmetrics.AddCounter(r.Context(), metricEdgeAdmissionRejections, 1,
 			gizmetrics.Label{Name: "reason", Value: "upstream_capacity"})
 		admission.releasePending()
 		writeGatewaySignalingError(w, http.StatusServiceUnavailable, "gateway_over_capacity", true)
 		return
 	}
-	admission.upstream = entry
-	admission.releaseUpstream = release
-	w.Header().Set("X-GizClaw-Gateway-Upstream", fmt.Sprintf("%d", entry.id))
-	recorder := &gatewayStatusWriter{ResponseWriter: w}
+	// A denied route has no upstream. Let the signaling handler verify the
+	// offer before the gateway policy returns the standard peer_forbidden.
+	admission.setUpstream(entry, release)
+	recorder := &gatewayStatusWriter{ResponseWriter: w, upstream: entry}
 	g.listener.SignalingHandler().ServeHTTP(recorder, r)
 	if recorder.status < http.StatusOK || recorder.status >= http.StatusMultipleChoices {
+		if recorder.status == http.StatusForbidden {
+			gizmetrics.AddCounter(r.Context(), metricEdgeAdmissionRejections, 1,
+				gizmetrics.Label{Name: "reason", Value: "peer_forbidden"})
+		}
 		admission.releasePending()
 		return
 	}
@@ -1019,12 +1023,16 @@ func (g *Gateway) releaseAdmissions() {
 
 type gatewayStatusWriter struct {
 	http.ResponseWriter
-	status int
+	status   int
+	upstream *gatewayUpstream
 }
 
 func (w *gatewayStatusWriter) WriteHeader(status int) {
 	if w.status == 0 {
 		w.status = status
+		if w.upstream != nil && status >= http.StatusOK && status < http.StatusMultipleChoices {
+			w.Header().Set("X-GizClaw-Gateway-Upstream", fmt.Sprintf("%d", w.upstream.id))
+		}
 	}
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -1038,8 +1046,9 @@ func (w *gatewayStatusWriter) Write(data []byte) (int, error) {
 
 type gatewayClientSecurityPolicy struct{}
 
-func (gatewayClientSecurityPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool {
-	return true
+func (gatewayClientSecurityPolicy) AllowPeer(ctx context.Context, peer giznet.PeerAdmission) bool {
+	admission, _ := ctx.Value(gatewayAdmissionContextKey{}).(*gatewayAdmission)
+	return admission != nil && admission.clientKey == peer.PublicKey && admission.upstream != nil
 }
 
 func (gatewayClientSecurityPolicy) AllowService(_ giznet.PublicKey, service uint64) bool {

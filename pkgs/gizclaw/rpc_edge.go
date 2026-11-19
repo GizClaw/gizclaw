@@ -178,6 +178,11 @@ func (s *edgeRPCServer) handleResolve(ctx context.Context, req *rpcapi.RPCReques
 		return edgeRPCError(req.Id, err)
 	}
 	assignment, err := s.routes.Resolve(ctx, publicKey)
+	if errors.Is(err, peerroute.ErrPeerBlocked) {
+		// NotFound permits first-contact bootstrap. An explicit block must
+		// stop this route lookup even when another Server has a stale view.
+		return edgeRPCError(req.Id, peer.ErrPeerBlocked)
+	}
 	if err != nil {
 		return edgeRPCError(req.Id, err)
 	}

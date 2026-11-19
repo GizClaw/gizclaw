@@ -13,11 +13,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-var errRouteAssignmentNotFound = errors.New("edge: peer assignment not found")
-
 var (
-	errAPIKeyUnauthorized     = errors.New("edge: API key is unauthorized")
-	errAPIKeyOwnerUnavailable = errors.New("edge: API key owner is unavailable")
+	errRouteAssignmentNotFound = errors.New("edge: peer assignment not found")
+	errPeerRouteDenied         = errors.New("edge: peer route denied")
+	errAPIKeyUnauthorized      = errors.New("edge: API key is unauthorized")
+	errAPIKeyOwnerUnavailable  = errors.New("edge: API key owner is unavailable")
 )
 
 func (g *Gateway) acquirePeerUpstream(ctx context.Context, peerKey giznet.PublicKey) (*gatewayUpstream, func(), error) {
@@ -55,6 +55,9 @@ func (g *Gateway) acquirePeerUpstream(ctx context.Context, peerKey giznet.Public
 		}
 		if resolveErr != nil {
 			release()
+			if errors.Is(resolveErr, errPeerRouteDenied) {
+				return nil, nil, resolveErr
+			}
 			errs = append(errs, resolveErr)
 			continue
 		}
@@ -152,8 +155,11 @@ func resolvePeerAssignment(ctx context.Context, conn giznet.Conn, peerKey giznet
 		return nil, fmt.Errorf("edge: finish route response: %w", err)
 	}
 	if response.Error != nil {
-		if response.Error.Code == rpcapi.StatusCodeNotFound {
+		switch response.Error.Code {
+		case rpcapi.StatusCodeNotFound:
 			return nil, errRouteAssignmentNotFound
+		case rpcapi.StatusCodePermissionDenied:
+			return nil, errPeerRouteDenied
 		}
 		return nil, fmt.Errorf("edge: route rpc failed with code %d", response.Error.Code)
 	}
