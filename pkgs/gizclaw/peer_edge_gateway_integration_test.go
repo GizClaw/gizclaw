@@ -49,65 +49,11 @@ func TestEdgeGatewayAndServerTunnelShareSessionCorrelation(t *testing.T) {
 	slog.SetDefault(slog.New(capture))
 	t.Cleanup(func() { slog.SetDefault(previousLogger) })
 
-	probe, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	edgeAddr := probe.Addr().String()
-	if err := probe.Close(); err != nil {
-		t.Fatal(err)
-	}
-	root := t.TempDir()
-	config := fmt.Sprintf(`identity:
-  private-key: %s
-webrtc:
-  listen: %s
-  endpoint: %s
-upstreams:
-  - endpoint: %s
-    public-key: %s
-http:
-  listeners:
-    - listen: %s
-gateway:
-  enabled: true
-  max-sessions: 4
-  max-upstreams: 1
-  sessions-per-upstream: 4
-  channels-per-session: 8
-  channels-per-upstream: 12
-  max-pending-handshakes: 4
-  session-buffer-bytes: 1048576
-  idle-timeout: 1m
-  drain-timeout: 1s
-`, edgeKey.Private.String(), edgeAddr, edgeAddr, server.baseURL, server.server.PublicKey().String(), edgeAddr)
-	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(config), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	edgeCtx, cancelEdge := context.WithCancel(t.Context())
-	edgeDone := make(chan error, 1)
-	go func() { edgeDone <- gizedge.ServeContext(edgeCtx, root) }()
-	t.Cleanup(func() {
-		cancelEdge()
-		select {
-		case err := <-edgeDone:
-			if err != nil {
-				t.Errorf("edge shutdown error = %v", err)
-			}
-		case <-time.After(10 * time.Second):
-			t.Error("edge did not stop")
-		}
-	})
+	edgeAddr := startEdgeGatewayTestIngress(t, edgeKey, server, 4)
 
 	var clientListener giznet.Listener
 	var clientConn giznet.Conn
 	if err := waitUntil(10*time.Second, func() error {
-		select {
-		case serveErr := <-edgeDone:
-			return fmt.Errorf("edge exited before client dial: %w", serveErr)
-		default:
-		}
 		listener, conn, dialErr := gizwebrtc.Dial(
 			t.Context(), clientKey, edgeKey.Public,
 			gizwebrtc.DialConfig{
@@ -142,6 +88,70 @@ gateway:
 	if matchedSessionID == "" {
 		t.Fatal("matched an empty tunnel_session_id")
 	}
+}
+
+func startEdgeGatewayTestIngress(t *testing.T, edgeKey *giznet.KeyPair, server *edgeGatewayTestServer, maxSessions int) string {
+	t.Helper()
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	edgeAddr := probe.Addr().String()
+	if err := probe.Close(); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	config := fmt.Sprintf(`identity:
+  private-key: %s
+webrtc:
+  listen: %s
+  endpoint: %s
+upstreams:
+  - endpoint: %s
+    public-key: %s
+http:
+  listeners:
+    - listen: %s
+gateway:
+  enabled: true
+  max-sessions: %d
+  max-upstreams: 1
+  sessions-per-upstream: 4
+  channels-per-session: 8
+  channels-per-upstream: 12
+  max-pending-handshakes: %d
+  session-buffer-bytes: 1048576
+  idle-timeout: 1m
+  drain-timeout: 1s
+`, edgeKey.Private.String(), edgeAddr, edgeAddr, server.baseURL, server.server.PublicKey().String(), edgeAddr, maxSessions, maxSessions)
+	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(config), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	edgeCtx, cancelEdge := context.WithCancel(t.Context())
+	edgeDone := make(chan error, 1)
+	go func() { edgeDone <- gizedge.ServeContext(edgeCtx, root) }()
+	t.Cleanup(func() {
+		cancelEdge()
+		select {
+		case err := <-edgeDone:
+			if err != nil {
+				t.Errorf("edge shutdown error = %v", err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Error("edge did not stop")
+		}
+	})
+	if err := waitUntil(testReadyTimeout, func() error {
+		conn, err := net.DialTimeout("tcp", edgeAddr, testProbeTimeout)
+		if err != nil {
+			return err
+		}
+		return conn.Close()
+	}); err != nil {
+		t.Fatalf("Edge HTTP listener: %v", err)
+	}
+	return edgeAddr
 }
 
 type allowAllEdgeGatewayPolicy struct{}

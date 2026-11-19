@@ -347,6 +347,12 @@ Signaling reserves handshake, total-session, and active-channel capacity
 before creating Server state. Exhaustion returns stable `503`
 `gateway_over_capacity` JSON with `Retry-After: 1`.
 
+When a reachable Server denies a Peer route, the Edge stops route selection.
+Once the listener verifies the encrypted offer, it returns `403 peer_forbidden`.
+That response covers blocked and retiring Peers alike. A cleanup client needs
+independent confirmation of deletion before discarding its recovery state.
+A missing assignment still allows first-contact bootstrap on the responding Server.
+
 Each session has a default 1 MiB reliable-write budget. One channel may consume
 at most half, preserving sibling Event/RPC progress, and the association budget
 is 32 MiB. Reservations remain until DataChannel `BufferedAmount` drains.

@@ -64,7 +64,7 @@ func (t *orderedUpstreamTransport) RoundTrip(request *http.Request) (*http.Respo
 		}
 		assignment, err := t.resolvePeerAssignment(request.Context(), key)
 		if err != nil {
-			if errors.Is(err, errRouteAssignmentNotFound) {
+			if errors.Is(err, errRouteAssignmentNotFound) || errors.Is(err, errPeerRouteDenied) {
 				return nil, errAPIKeyOwnerUnavailable
 			}
 			return nil, fmt.Errorf("%w: %w", errAPIKeyTargetUnavailable, err)
@@ -200,7 +200,7 @@ func (t *orderedUpstreamTransport) resolvePeerAssignment(
 		if errors.Is(err, errRouteAssignmentNotFound) {
 			return &rpcpb.PeerAssignment{ServerPublicKey: entry.cfg.selectedUpstream.PublicKey.String()}, err
 		}
-		if !upstreamConnectionFailed(conn, err) {
+		if errors.Is(err, errPeerRouteDenied) || !upstreamConnectionFailed(conn, err) {
 			return nil, err
 		}
 		entry.resetConn(epoch, ctx.Err() == nil && (entry.ctx == nil || entry.ctx.Err() == nil))

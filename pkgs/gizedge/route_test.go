@@ -139,6 +139,30 @@ func TestOrderedRouteLookupBootstrapsOnReachableResponder(t *testing.T) {
 	}
 }
 
+func TestDeniedPeerRouteStopsAtRespondingServer(t *testing.T) {
+	peer := testKeyPair(t, 0x95).Public
+	denied := &routeRPCGiznetConn{
+		// A terminal reply takes precedence even if the association starts
+		// closing after delivering it.
+		failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateOffline},
+		routeErrorCode:    rpcapi.StatusCodePermissionDenied,
+	}
+	stale := &routeRPCGiznetConn{failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished}}
+	ordered := &orderedUpstreamTransport{entries: []*upstreamTransport{{conn: denied}, {conn: stale}}}
+	if _, err := ordered.resolvePeerAssignment(t.Context(), peer); !errors.Is(err, errPeerRouteDenied) {
+		t.Fatalf("ordered route lookup: %v", err)
+	}
+	pool, entry := routeTestPool(t, denied)
+	other, _ := routeTestPool(t, stale)
+	gateway := &Gateway{poolOrder: []*gatewayPool{pool, other}}
+	if _, _, err := gateway.acquirePeerUpstream(t.Context(), peer); !errors.Is(err, errPeerRouteDenied) {
+		t.Fatalf("pooled route lookup: %v", err)
+	}
+	if denied.calls.Load() != 2 || stale.calls.Load() != 0 || entry.active != 0 {
+		t.Fatalf("route calls: denied=%d stale=%d, active slots=%d", denied.calls.Load(), stale.calls.Load(), entry.active)
+	}
+}
+
 func TestResolveAPIKeyAssignmentUsesEdgeRPC(t *testing.T) {
 	assignment := &rpcpb.PeerAssignment{PeerPublicKey: testKeyPair(t, 0xa1).Public.String(), ServerPublicKey: testKeyPair(t, 0xa2).Public.String()}
 	conn := &routeRPCGiznetConn{
@@ -265,14 +289,15 @@ func routeTestPool(t *testing.T, conn giznet.Conn) (*gatewayPool, *gatewayUpstre
 
 type routeRPCGiznetConn struct {
 	*failingGiznetConn
-	assignment    *rpcpb.PeerAssignment
-	apiAssignment *rpcpb.PeerAssignment
-	apiErrorCode  rpcapi.StatusCode
-	apiKey        atomic.Value
-	calls         atomic.Int32
-	httpServerID  string
-	httpCalls     atomic.Int32
-	httpHandler   http.Handler
+	assignment     *rpcpb.PeerAssignment
+	routeErrorCode rpcapi.StatusCode
+	apiAssignment  *rpcpb.PeerAssignment
+	apiErrorCode   rpcapi.StatusCode
+	apiKey         atomic.Value
+	calls          atomic.Int32
+	httpServerID   string
+	httpCalls      atomic.Int32
+	httpHandler    http.Handler
 }
 
 func (c *routeRPCGiznetConn) DialContext(_ context.Context, service uint64) (net.Conn, error) {
@@ -344,10 +369,14 @@ func (c *routeRPCGiznetConn) Dial(service uint64) (net.Conn, error) {
 			return
 		}
 		if c.assignment == nil {
+			code := c.routeErrorCode
+			if code == 0 {
+				code = rpcapi.StatusCodeNotFound
+			}
 			_ = rpcapi.WriteResponseForMethod(server, rpcapi.RPCMethodServerRouteResolve, (rpcapi.Error{
 				RequestID: request.Id,
-				Code:      rpcapi.StatusCodeNotFound,
-				Message:   "assignment not found",
+				Code:      code,
+				Message:   "route unavailable",
 			}).RPCResponse())
 			_ = rpcapi.WriteEOS(server)
 			return
