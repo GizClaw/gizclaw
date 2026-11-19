@@ -194,8 +194,8 @@ func TestEdgeGatewayUnavailableRouteStore(t *testing.T) {
 	edge := newEdgeTestKey(t)
 	upstream := startEdgeGatewayTestServer(t, edge.Public)
 	url := "http://" + startEdgeGatewayTestIngress(t, edge, upstream, 4) + gizwebrtc.SignalingPath
-	// Take just this Server's dedicated Badger store offline. The Edge and
-	// its authenticated route RPC remain reachable throughout the request.
+	// Stop this Server's dedicated Peer KV backend while the Edge is still
+	// serving offers. Both Edge role checks and route lookups use this store.
 	if err := upstream.server.PeerStore.Close(); err != nil {
 		t.Fatal(err)
 	}
