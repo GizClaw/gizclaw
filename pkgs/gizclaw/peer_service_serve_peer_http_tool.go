@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/gofiber/fiber/v2"
@@ -236,14 +237,14 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 		if request.GetDelayMs() < 0 {
 			return invalid()
 		}
-		opts.markTransition = true
+		opts.transitionReason = observability.ControlFailureRestartTransition
 	case *rpcpb.ClientDeviceFactoryResetRequest:
-		opts.markTransition = true
+		opts.transitionReason = observability.ControlFailureRestartTransition
 	case *rpcpb.ClientFirmwareUpdateRequest:
 		if request.Sha256 != nil && !firmwareSha256Pattern.MatchString(*request.Sha256) {
 			return invalid()
 		}
-		opts.markTransition = true
+		opts.transitionReason = observability.ControlFailureRestartTransition
 	case *rpcpb.ClientWifiScanRequest:
 		opts.timeout = deviceWifiScanTimeout
 		if request.TimeoutMs != nil {
@@ -257,7 +258,7 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 		if request.Passphrase != nil && (len(*request.Passphrase) < minWifiPassphraseBytes || len(*request.Passphrase) > maxWifiPassphraseBytes) {
 			return invalid()
 		}
-		opts.markTransition = true
+		opts.transitionReason = observability.ControlFailureWiFiTransition
 	case *rpcpb.ClientWifiSavedForgetRequest:
 		if failure := validateDeviceString("ssid", request.Ssid, maxDeviceSSIDBytes); failure != nil {
 			return opts, failure

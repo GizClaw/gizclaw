@@ -100,6 +100,17 @@ func TestOutcomeRejectsUnsafeValuesAndMapsLevels(t *testing.T) {
 	}
 }
 
+func TestControlFailureAnnotationRejectsUnlistedValues(t *testing.T) {
+	outcome := NewOutcome(TransportHTTP, SurfacePeerHTTP, "invokeClientTool")
+	outcome.Annotate(AnnotationDeviceControlFailure, "unlisted-value")
+	_, attrs := outcome.logRecord()
+	for _, attr := range attrs {
+		if attr.Key == string(AnnotationDeviceControlFailure) {
+			t.Fatalf("unexpected control failure annotation: %v", attr)
+		}
+	}
+}
+
 func TestOutcomeOmitsAbsentRPCCodeAndClassesCanonicalStatus(t *testing.T) {
 	outcome := NewOutcome(TransportRPC, SurfacePeerRPC, "server.workspace.get")
 	outcome.SetRPC(0, ResultSuccess)

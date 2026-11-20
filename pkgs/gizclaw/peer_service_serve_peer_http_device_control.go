@@ -14,6 +14,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
@@ -61,7 +62,12 @@ type deviceController struct {
 	locks keyedlock.Locker[giznet.PublicKey]
 
 	mu            sync.Mutex
-	transitioning map[giznet.PublicKey]giznet.Conn
+	transitioning map[giznet.PublicKey]deviceControlTransition
+}
+
+type deviceControlTransition struct {
+	conn   giznet.Conn
+	reason observability.DeviceControlFailureReason
 }
 
 func newDeviceController(manager *Manager, status peertelemetry.PeerStatusStore) *deviceController {
@@ -100,43 +106,43 @@ func (c *deviceController) clock() time.Time {
 // transitionPending reports whether a connection that acknowledged an action
 // requiring disconnect is still the owner's active connection. A replaced or
 // removed connection clears the marker.
-func (c *deviceController) transitionPending(owner giznet.PublicKey) bool {
+func (c *deviceController) transitionPending(owner giznet.PublicKey) observability.DeviceControlFailureReason {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conn, ok := c.transitioning[owner]
+	transition, ok := c.transitioning[owner]
 	if !ok {
-		return false
+		return ""
 	}
 	current, active := c.manager.Peer(owner)
-	if active && current == conn {
-		return true
+	if active && current == transition.conn {
+		return transition.reason
 	}
 	delete(c.transitioning, owner)
-	return false
+	return ""
 }
 
 // markTransitioning records conn as the connection that acknowledged an action
 // requiring disconnect. Callers hold the owner command lock so a queued command
 // cannot slip through between the acknowledgement and the marker.
-func (c *deviceController) markTransitioning(owner giznet.PublicKey, conn giznet.Conn) {
+func (c *deviceController) markTransitioning(owner giznet.PublicKey, conn giznet.Conn, reason observability.DeviceControlFailureReason) {
 	if conn == nil {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.transitioning == nil {
-		c.transitioning = make(map[giznet.PublicKey]giznet.Conn)
+		c.transitioning = make(map[giznet.PublicKey]deviceControlTransition)
 	}
-	c.transitioning[owner] = conn
+	c.transitioning[owner] = deviceControlTransition{conn: conn, reason: reason}
 }
 
 // deviceControlOptions tunes one forwarded control command.
 type deviceControlOptions struct {
 	authorize func(context.Context) *deviceControlError
-	// markTransition records the connection that answered the command as
-	// transitioning before the owner command lock is released.
-	markTransition bool
-	timeout        time.Duration
+	// transitionReason records the failure reason for commands blocked on the
+	// connection that acknowledged this operation.
+	transitionReason observability.DeviceControlFailureReason
+	timeout          time.Duration
 	// notFoundCode is the Public HTTP error code for a NOT_FOUND answer from
 	// this route. Routes that name a specific resource set it; the rest fall
 	// back to the generic code rather than borrowing another route's.
@@ -156,7 +162,8 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 		return nil, &deviceControlError{Status: http.StatusInternalServerError, Code: publicHTTPInternalErrorCode, Message: http.StatusText(http.StatusInternalServerError)}
 	}
 	defer release()
-	if c.transitionPending(owner) {
+	if reason := c.transitionPending(owner); reason != "" {
+		annotateControlFailure(ctx, reason)
 		return nil, deviceOfflineError()
 	}
 	// Resolve the active connection once and dial the RPC stream on that
@@ -164,6 +171,7 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	// actually answered even if the device reconnects mid-command.
 	target, ok := c.manager.Peer(owner)
 	if !ok || target == nil {
+		annotateControlFailure(ctx, observability.ControlFailurePeerMissing)
 		return nil, deviceOfflineError()
 	}
 	timeout := opts.timeout
@@ -174,7 +182,9 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	defer cancel()
 	stream, err := target.Dial(ServicePeerRPC)
 	if err != nil {
-		return nil, mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx, opts.notFoundCode)
+		failure := mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx, opts.notFoundCode)
+		annotateControlFailure(ctx, observability.ControlFailureRPCDial)
+		return nil, failure
 	}
 	defer func() { _ = stream.Close() }()
 	if opts.authorize != nil {
@@ -186,8 +196,8 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 	if err != nil {
 		return nil, mapDeviceControlError(err, callCtx, opts.notFoundCode)
 	}
-	if opts.markTransition {
-		c.markTransitioning(owner, target)
+	if opts.transitionReason != "" {
+		c.markTransitioning(owner, target, opts.transitionReason)
 	}
 	if after != nil {
 		if err := after(ctx, result); err != nil {
@@ -195,6 +205,10 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 		}
 	}
 	return result, nil
+}
+
+func annotateControlFailure(ctx context.Context, reason observability.DeviceControlFailureReason) {
+	observability.Annotate(ctx, observability.AnnotationDeviceControlFailure, string(reason))
 }
 
 // mapDeviceControlError projects one control failure onto the Public HTTP
@@ -205,6 +219,7 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 func mapDeviceControlError(err error, ctx context.Context, notFoundCode string) *deviceControlError {
 	switch {
 	case errors.Is(err, ErrDeviceOffline), isPeerDisconnectedError(err):
+		annotateControlFailure(ctx, observability.ControlFailureRPCDisconnected)
 		return deviceOfflineError()
 	}
 	if rpcErr, ok := errors.AsType[rpcapi.Error](err); ok {
@@ -220,8 +235,10 @@ func mapDeviceControlError(err error, ctx context.Context, notFoundCode string) 
 			}
 			return &deviceControlError{Status: http.StatusNotFound, Code: code, Message: "device has no matching resource"}
 		case rpcapi.StatusCodeDeadlineExceeded:
+			annotateControlFailure(ctx, observability.ControlFailureRPCTimeout)
 			return &deviceControlError{Status: http.StatusGatewayTimeout, Code: deviceTimeoutCode, Message: "device did not respond in time"}
 		case rpcapi.StatusCodeUnavailable:
+			annotateControlFailure(ctx, observability.ControlFailureRPCUnavailable)
 			return deviceOfflineError()
 		default:
 			// A code with no projection stays a bad gateway: the fault is the
@@ -233,6 +250,7 @@ func mapDeviceControlError(err error, ctx context.Context, notFoundCode string) 
 	}
 	var netErr net.Error
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		annotateControlFailure(ctx, observability.ControlFailureRPCTimeout)
 		return &deviceControlError{Status: http.StatusGatewayTimeout, Code: deviceTimeoutCode, Message: "device did not respond in time"}
 	}
 	return &deviceControlError{Status: http.StatusBadGateway, Code: deviceErrorCode, Message: "device returned an error"}

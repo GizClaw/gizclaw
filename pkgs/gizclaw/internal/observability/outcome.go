@@ -211,6 +211,9 @@ func (o *Outcome) Annotate(key AnnotationKey, value string) {
 	if o == nil || !validAnnotationKey(key) {
 		return
 	}
+	if key == AnnotationDeviceControlFailure && !validDeviceControlFailureReason(value) {
+		return
+	}
 	value = boundedDimension(value, "")
 	if value == "" {
 		return
@@ -253,7 +256,7 @@ func (o *Outcome) logRecord() (slog.Level, []slog.Attr) {
 			attrs = append(attrs, slog.String(item.key, item.value))
 		}
 	}
-	for _, key := range []AnnotationKey{AnnotationWorkspaceName, AnnotationWorkflowName, AnnotationModelID, AnnotationResourceKind, AnnotationResourceName} {
+	for _, key := range []AnnotationKey{AnnotationWorkspaceName, AnnotationWorkflowName, AnnotationModelID, AnnotationResourceKind, AnnotationResourceName, AnnotationDeviceControlFailure} {
 		if value := o.annotations[key]; value != "" {
 			attrs = append(attrs, slog.String(string(key), value))
 		}
@@ -331,7 +334,7 @@ func boundedDimension(value, fallback string) string {
 
 func validAnnotationKey(key AnnotationKey) bool {
 	switch key {
-	case AnnotationWorkspaceName, AnnotationWorkflowName, AnnotationModelID, AnnotationResourceKind, AnnotationResourceName:
+	case AnnotationWorkspaceName, AnnotationWorkflowName, AnnotationModelID, AnnotationResourceKind, AnnotationResourceName, AnnotationDeviceControlFailure:
 		return true
 	default:
 		return false
