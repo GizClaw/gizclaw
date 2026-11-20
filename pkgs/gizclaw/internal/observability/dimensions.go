@@ -47,9 +47,33 @@ const (
 type AnnotationKey string
 
 const (
-	AnnotationWorkspaceName AnnotationKey = "workspace_name"
-	AnnotationWorkflowName  AnnotationKey = "workflow_name"
-	AnnotationModelID       AnnotationKey = "model_id"
-	AnnotationResourceKind  AnnotationKey = "resource_kind"
-	AnnotationResourceName  AnnotationKey = "resource_name"
+	AnnotationWorkspaceName        AnnotationKey = "workspace_name"
+	AnnotationWorkflowName         AnnotationKey = "workflow_name"
+	AnnotationModelID              AnnotationKey = "model_id"
+	AnnotationResourceKind         AnnotationKey = "resource_kind"
+	AnnotationResourceName         AnnotationKey = "resource_name"
+	AnnotationDeviceControlFailure AnnotationKey = "control_failure_reason"
 )
+
+// DeviceControlFailureReason is a fixed diagnostic label for a control failure.
+type DeviceControlFailureReason string
+
+const (
+	ControlFailureWiFiTransition    DeviceControlFailureReason = "wifi_transition"
+	ControlFailureRestartTransition DeviceControlFailureReason = "restart_transition"
+	ControlFailurePeerMissing       DeviceControlFailureReason = "peer_missing"
+	ControlFailureRPCDial           DeviceControlFailureReason = "rpc_dial_failed"
+	ControlFailureRPCDisconnected   DeviceControlFailureReason = "rpc_disconnected"
+	ControlFailureRPCUnavailable    DeviceControlFailureReason = "rpc_unavailable"
+	ControlFailureRPCTimeout        DeviceControlFailureReason = "rpc_timeout"
+)
+
+func validDeviceControlFailureReason(value string) bool {
+	switch DeviceControlFailureReason(value) {
+	case ControlFailureWiFiTransition, ControlFailureRestartTransition, ControlFailurePeerMissing,
+		ControlFailureRPCDial, ControlFailureRPCDisconnected, ControlFailureRPCUnavailable, ControlFailureRPCTimeout:
+		return true
+	default:
+		return false
+	}
+}
