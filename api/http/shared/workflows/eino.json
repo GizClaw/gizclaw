@@ -293,6 +293,7 @@
               "model": { "type": "string", "minLength": 1 },
               "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
               "max_tokens": { "type": "integer", "minimum": 1 },
+              "discard_response": { "type": "boolean", "description": "Run a tool-free background request for this node and drain its response. A discard node has no outputs or structured_output. Its provider cannot affect the turn or invoke tools." },
               "structured_output": { "$ref": "#/components/schemas/EinoStructuredOutput" }
             }
           }

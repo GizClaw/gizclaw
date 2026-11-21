@@ -76,6 +76,10 @@ Tool round 与被拒绝的草稿不发布，通过检查的最终文本一次发
 Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，随后移除 ID。
 同名并行提议或结果顺序不同也不按名称猜目标；无匹配的结果不补参数。
 
+### 后台模型请求
+
+设置 `chat_model.discard_response: true` 且省略该节点的输出。每次执行节点，当前 Workflow generation 用配置的消息和模型参数发出一次后台请求，私下读完整条响应流。前台模型持有工具和对话输出。后台请求失败时记录无正文的诊断。generation 关闭时取消并回收其任务。每个 generation 最多同时处理 16 个后台请求，单次时限 30 秒；达到并发上限时记录跳过的请求并继续当前对话。
+
 ### 结构化分流
 
 解析后的组件实现 `StructuredChatModel` 时，ChatModel 可配置 `StructuredOutput`。

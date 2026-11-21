@@ -36,12 +36,13 @@ type Transformer struct {
 	initiativeMu      sync.Mutex
 	initiativeClaimed bool
 
-	taskContext context.Context
-	cancelTasks context.CancelCauseFunc
-	taskMu      sync.Mutex
-	tasksClosed bool
-	tasks       sync.WaitGroup
-	closeOnce   sync.Once
+	taskContext  context.Context
+	cancelTasks  context.CancelCauseFunc
+	taskMu       sync.Mutex
+	tasksClosed  bool
+	tasks        sync.WaitGroup
+	discardSlots chan struct{}
+	closeOnce    sync.Once
 }
 
 // New validates Config, resolves components, and compiles the Graph exactly
@@ -64,25 +65,27 @@ func New(ctx context.Context, source Config) (*Transformer, error) {
 	}
 	transformer := &Transformer{
 		config: config, graph: graph, contextID: contextID,
+		discardSlots: make(chan struct{}, maxModelDiscards),
 		history: &conversationHistory{
 			config: config.History,
 		},
 	}
 	transformer.taskContext, transformer.cancelTasks = context.WithCancelCause(context.Background())
+	transformer.config.discardModel = transformer.scheduleModelDiscard
 	if transformer.config.Memory != nil {
-		transformer.config.Memory.runAsync = transformer.runAsync
+		transformer.config.Memory.runAsync = func(task func(context.Context)) { transformer.runAsync(task) }
 	}
 	return transformer, nil
 }
 
-func (transformer *Transformer) runAsync(task func(context.Context)) {
+func (transformer *Transformer) runAsync(task func(context.Context)) bool {
 	if transformer == nil || task == nil {
-		return
+		return false
 	}
 	transformer.taskMu.Lock()
 	if transformer.tasksClosed {
 		transformer.taskMu.Unlock()
-		return
+		return false
 	}
 	transformer.tasks.Add(1)
 	transformer.taskMu.Unlock()
@@ -90,9 +93,10 @@ func (transformer *Transformer) runAsync(task func(context.Context)) {
 		defer transformer.tasks.Done()
 		task(transformer.taskContext)
 	}()
+	return true
 }
 
-// Close cancels and joins asynchronous Memory work owned by this generation.
+// Close cancels and joins asynchronous work owned by this generation.
 func (transformer *Transformer) Close() error {
 	if transformer == nil {
 		return nil

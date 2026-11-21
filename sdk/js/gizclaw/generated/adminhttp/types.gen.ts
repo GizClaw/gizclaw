@@ -2480,6 +2480,10 @@ export type EinoChatModelNode = EinoNodeBase & {
     model: string;
     temperature?: number;
     max_tokens?: number;
+    /**
+     * Run a tool-free background request for this node and drain its response. A discard node has no outputs or structured_output. Its provider cannot affect the turn or invoke tools.
+     */
+    discard_response?: boolean;
     structured_output?: EinoStructuredOutput;
 };
 

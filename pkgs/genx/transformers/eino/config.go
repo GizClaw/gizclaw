@@ -146,11 +146,12 @@ type ObservePolicy struct {
 
 type normalizedConfig struct {
 	Config
-	fields    map[string]StateField
-	nodes     map[string]NodeDefinition
-	outputs   map[string][]OutputDefinition
-	primary   OutputDefinition
-	graphCopy GraphDefinition
+	fields       map[string]StateField
+	nodes        map[string]NodeDefinition
+	outputs      map[string][]OutputDefinition
+	primary      OutputDefinition
+	graphCopy    GraphDefinition
+	discardModel func(context.Context, func(context.Context) error)
 }
 
 // AcceptsAudioInput reports whether source accepts complete audio user turns.
@@ -826,6 +827,12 @@ func validateNodePorts(node NodeDefinition, fields map[string]StateType, path st
 		}
 		if err := requireType(actual, StateMessages, "messages"); err != nil {
 			return err
+		}
+		if node.ChatModel.DiscardResponse {
+			if len(node.Outputs) != 0 || node.ChatModel.StructuredOutput != nil {
+				return fmt.Errorf("eino: %s discard_response cannot declare outputs or structured_output", nodePath)
+			}
+			return nil
 		}
 		if len(node.Outputs) == 0 || len(node.Outputs) > 2 {
 			return fmt.Errorf("eino: %s requires text and/or messages output", nodePath)

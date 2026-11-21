@@ -41,6 +41,8 @@ type ChatModelNode struct {
 	Temperature      *float32
 	MaxTokens        *int
 	StructuredOutput *StructuredOutput
+	// DiscardResponse sends a bounded background request with no tools or graph output.
+	DiscardResponse bool
 }
 
 // StructuredOutput declares one provider-enforced JSON object response.
