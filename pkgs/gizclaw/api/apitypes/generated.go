@@ -3797,11 +3797,13 @@ type EinoBranchRoute struct {
 
 // EinoChatModelNode defines model for EinoChatModelNode.
 type EinoChatModelNode struct {
-	Id        string                  `json:"id"`
-	Inputs    *map[string]EinoBinding `json:"inputs,omitempty"`
-	MaxTokens *int                    `json:"max_tokens,omitempty"`
-	Model     string                  `json:"model"`
-	Outputs   *map[string]string      `json:"outputs,omitempty"`
+	// DiscardResponse Run a tool-free background request for this node and drain its response. A discard node has no outputs or structured_output. Its provider cannot affect the turn or invoke tools.
+	DiscardResponse *bool                   `json:"discard_response,omitempty"`
+	Id              string                  `json:"id"`
+	Inputs          *map[string]EinoBinding `json:"inputs,omitempty"`
+	MaxTokens       *int                    `json:"max_tokens,omitempty"`
+	Model           string                  `json:"model"`
+	Outputs         *map[string]string      `json:"outputs,omitempty"`
 
 	// StructuredOutput Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.
 	StructuredOutput *EinoStructuredOutput `json:"structured_output,omitempty"`

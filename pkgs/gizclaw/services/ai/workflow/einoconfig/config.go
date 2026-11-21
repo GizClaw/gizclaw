@@ -247,6 +247,7 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.ChatModel = &genxeino.ChatModelNode{
 			Model: value.Model, Temperature: value.Temperature, MaxTokens: value.MaxTokens,
+			DiscardResponse: boolValue(value.DiscardResponse),
 		}
 		if output := value.StructuredOutput; output != nil {
 			encoded, err := json.Marshal(output.Schema)
