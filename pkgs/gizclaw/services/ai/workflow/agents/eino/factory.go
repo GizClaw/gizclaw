@@ -1066,6 +1066,7 @@ func genXFuncTool(info *schema.ToolInfo) (*genx.FuncTool, error) {
 		return nil, fmt.Errorf("name is required")
 	}
 	var argument jsonschema.Schema
+	var parameters json.RawMessage
 	if info.ParamsOneOf == nil {
 		argument.Type = "object"
 	} else {
@@ -1073,11 +1074,11 @@ func genXFuncTool(info *schema.ToolInfo) (*genx.FuncTool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Tool %q schema: %w", name, err)
 		}
-		encoded, err := json.Marshal(source)
+		parameters, err = json.Marshal(source)
 		if err != nil {
 			return nil, fmt.Errorf("encode Tool %q schema: %w", name, err)
 		}
-		if err := json.Unmarshal(encoded, &argument); err != nil {
+		if err := json.Unmarshal(parameters, &argument); err != nil {
 			return nil, fmt.Errorf("convert Tool %q schema: %w", name, err)
 		}
 	}
@@ -1086,6 +1087,8 @@ func genXFuncTool(info *schema.ToolInfo) (*genx.FuncTool, error) {
 	}
 	return &genx.FuncTool{
 		Name: name, Description: strings.TrimSpace(info.Desc), Argument: &argument,
+		// The model and the invoker share the declared parameter contract.
+		Parameters: parameters,
 	}, nil
 }
 
