@@ -849,6 +849,13 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 
 func (run *turnRun) executeGraph(ctx context.Context, state *runState, version *string) error {
 	config := run.session.transformer.config
+	if observer, ok := config.ToolInvoker.(interface {
+		BeginToolTurn(context.Context, string) (context.Context, func())
+	}); ok {
+		observed, finish := observer.BeginToolTurn(ctx, run.anchorID)
+		ctx = observed
+		defer finish()
+	}
 	execute := func() error {
 		// Each root generation owns its ToolCalls. Child Graphs and model
 		// continuations share this context; an inherited scope is preserved.
