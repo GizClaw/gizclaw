@@ -83,6 +83,10 @@ Tool-result snapshots associate actual arguments using the internal call ID and 
 name, then omit the ID. Multiple proposals with the same name or reordered results cannot select
 arguments by name; an unmatched result receives no invented arguments.
 
+### Background model requests
+
+A `chat_model` with `discard_response: true` receives the configured messages and model options once per node execution. Declare the node without outputs. The generation schedules a raw provider stream and drains it privately. Only foreground models receive the tool catalog and publish results. Provider errors produce a content-free diagnostic. Generation shutdown cancels and joins pending requests. Each generation allows 16 concurrent discarded streams with a 30-second deadline. At capacity it logs the skipped request and continues the turn.
+
 ### Structured control
 
 A ChatModel can set `StructuredOutput` when its resolved component implements

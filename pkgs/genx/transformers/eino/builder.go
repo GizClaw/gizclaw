@@ -330,6 +330,25 @@ func addNativeComponentNode(
 		if err := graph.AddLambdaNode("prepare", prepare); err != nil {
 			return nil, err
 		}
+		if node.ChatModel.DiscardResponse {
+			// The raw component never sees tool definitions or an invoker. Each
+			// chunk is consumed privately, including unsolicited provider calls.
+			schedule := compose.InvokableLambda(func(ctx context.Context, messages []*schema.Message) (map[string]any, error) {
+				config.discardModel(ctx, func(task context.Context) error {
+					return drainModelResponse(task, component, messages, options...)
+				})
+				return map[string]any{node.ID: true}, nil
+			})
+			if err := graph.AddLambdaNode("discard", schedule); err != nil {
+				return nil, err
+			}
+			for _, edge := range [][2]string{{compose.START, "prepare"}, {"prepare", "discard"}, {"discard", compose.END}} {
+				if err := graph.AddEdge(edge[0], edge[1]); err != nil {
+					return nil, err
+				}
+			}
+			return graph, nil
+		}
 		adapted := &streamingChatModel{
 			component: component, options: options, node: node, published: published,
 			toolInvoker: config.ToolInvoker, verifyToolResponse: config.VerifyToolResponse,
