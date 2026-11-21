@@ -115,11 +115,13 @@ func OpenMCP(ctx context.Context, config MCPConfig) (*MCPInvoker, error) {
 	return invoker, nil
 }
 
+const mcpFunctionPrefix = "mcp__"
+
 func (i *MCPInvoker) add(alias, operation, remote string) {
 	digest := sha256.Sum256([]byte(alias + "\x00" + operation + "\x00" + remote))
 	// Double underscores cannot be produced by the ordinary Profile alias
 	// grammar, so these names cannot collide with HTTP or device tools.
-	name := fmt.Sprintf("mcp__%x", digest[:20])
+	name := fmt.Sprintf("%s%x", mcpFunctionPrefix, digest[:20])
 	i.operations[name] = mcpOperation{server: alias, operation: operation, remote: remote}
 }
 
@@ -193,6 +195,7 @@ func (i *MCPInvoker) ResolveCatalog(ctx context.Context) ([]toolcatalog.Tool, er
 
 func (i *MCPInvoker) invoke(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	if err := i.config.Authorize(ctx); err != nil {
+		recordMCPReject(ctx, i.operations[name], mcpCatalogOrAuthUnavailable)
 		return recoverableToolError("unavailable", "MCP authorization changed; reload the Workspace"), nil
 	}
 	operation := i.operations[name]
