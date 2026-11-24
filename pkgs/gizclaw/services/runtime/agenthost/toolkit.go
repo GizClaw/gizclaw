@@ -86,7 +86,7 @@ func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinitio
 			continue
 		}
 		schema := tool.Schema
-		definitions = append(definitions, genx.ToolDefinition{Name: tool.FunctionName, Description: tool.Description, Argument: &schema})
+		definitions = append(definitions, genx.ToolDefinition{Name: tool.FunctionName, Alias: tool.Alias, Description: tool.Description, Argument: &schema})
 	}
 	return definitions, nil
 }

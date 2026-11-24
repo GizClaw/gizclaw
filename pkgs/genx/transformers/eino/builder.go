@@ -509,8 +509,14 @@ func (chatModel *streamingChatModel) Generate(
 	var availabilityMessage *schema.Message
 	var content strings.Builder
 	textField := chatModel.node.Outputs["text"]
+	var noticeAlias string
+	notice := chatModel.node.ChatModel.ToolWaitNotice
+	if notice != nil {
+		noticeAlias = notice.ToolAlias
+	}
+	noticeScheduled := false
 	for {
-		tools, toolErr := einoToolInfos(ctx, chatModel.toolInvoker)
+		tools, noticeTool, toolErr := einoToolCatalog(ctx, chatModel.toolInvoker, noticeAlias)
 		if toolErr != nil {
 			return nil, toolErr
 		}
@@ -596,12 +602,26 @@ func (chatModel *streamingChatModel) Generate(
 				return nil, err
 			}
 			conversation := toolConversation(messages, inputMessageCount, user)
-			result, invokeErr := callState.Invoke(genx.WithToolConversation(ctx, conversation), genx.ToolCall{
+			invokeCtx := genx.WithToolConversation(ctx, conversation)
+			toolCall := genx.ToolCall{
 				ID: call.ID,
 				FuncCall: &genx.FuncCall{
 					Name: call.Function.Name, Arguments: call.Function.Arguments,
 				},
-			})
+			}
+			var stopNotice func() (bool, error)
+			if !noticeScheduled && noticeTool != "" && call.Function.Name == noticeTool {
+				noticeScheduled = true
+				stopNotice = scheduleToolWaitNotice(ctx, notice.Delay, func() error {
+					return chatModel.publishWaitNotice(state, textField, notice)
+				})
+			}
+			result, invokeErr := callState.Invoke(invokeCtx, toolCall)
+			if stopNotice != nil {
+				var noticeErr error
+				_, noticeErr = stopNotice()
+				invokeErr = errors.Join(invokeErr, noticeErr)
+			}
 			if invokeErr != nil {
 				return nil, invokeErr
 			}

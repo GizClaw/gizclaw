@@ -249,6 +249,14 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 			Model: value.Model, Temperature: value.Temperature, MaxTokens: value.MaxTokens,
 			DiscardResponse: boolValue(value.DiscardResponse),
 		}
+		if notice := value.ToolWaitNotice; notice != nil {
+			if notice.DelayMs < 100 || notice.DelayMs > 10000 {
+				return genxeino.NodeDefinition{}, fmt.Errorf("tool_wait_notice.delay_ms must be between 100 and 10000")
+			}
+			node.ChatModel.ToolWaitNotice = &genxeino.ToolWaitNotice{
+				ToolAlias: notice.ToolAlias, Delay: time.Duration(notice.DelayMs) * time.Millisecond, Messages: notice.Messages,
+			}
+		}
 		if output := value.StructuredOutput; output != nil {
 			encoded, err := json.Marshal(output.Schema)
 			if err != nil {

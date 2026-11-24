@@ -2485,6 +2485,7 @@ export type EinoChatModelNode = EinoNodeBase & {
      */
     discard_response?: boolean;
     structured_output?: EinoStructuredOutput;
+    tool_wait_notice?: EinoToolWaitNotice;
 };
 
 export type EinoConversation = {
@@ -2749,6 +2750,15 @@ export type EinoSubgraphNode = EinoNodeBase & {
         [key: string]: string;
     };
     graph: EinoGraph;
+};
+
+/**
+ * Publish one configured sentence while a matching tool call remains pending. The node must publish a text output.
+ */
+export type EinoToolWaitNotice = {
+    tool_alias: string;
+    delay_ms: number;
+    messages: Array<string>;
 };
 
 export type EinoTransformMessage = {
