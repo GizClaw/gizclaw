@@ -3808,7 +3808,10 @@ type EinoChatModelNode struct {
 	// StructuredOutput Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.
 	StructuredOutput *EinoStructuredOutput `json:"structured_output,omitempty"`
 	Temperature      *float32              `json:"temperature,omitempty"`
-	Type             EinoChatModelNodeType `json:"type"`
+
+	// ToolWaitNotice Publish one configured sentence while a matching tool call remains pending. The node must publish a text output.
+	ToolWaitNotice *EinoToolWaitNotice   `json:"tool_wait_notice,omitempty"`
+	Type           EinoChatModelNodeType `json:"type"`
 }
 
 // EinoChatModelNodeType defines model for EinoChatModelNode.Type.
@@ -4093,6 +4096,13 @@ type EinoSubgraphNode struct {
 
 // EinoSubgraphNodeType defines model for EinoSubgraphNode.Type.
 type EinoSubgraphNodeType string
+
+// EinoToolWaitNotice Publish one configured sentence while a matching tool call remains pending. The node must publish a text output.
+type EinoToolWaitNotice struct {
+	DelayMs   int      `json:"delay_ms"`
+	Messages  []string `json:"messages"`
+	ToolAlias string   `json:"tool_alias"`
+}
 
 // EinoTransformMessage defines model for EinoTransformMessage.
 type EinoTransformMessage struct {

@@ -27,6 +27,7 @@ const DefaultMaxToolCalls = 32
 // owned by the caller of ToolInvoker.ResolveTools and may be mutated.
 type ToolDefinition struct {
 	Name        string
+	Alias       string
 	Description string
 	Argument    *jsonschema.Schema
 }

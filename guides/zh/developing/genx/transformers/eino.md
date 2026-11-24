@@ -65,6 +65,8 @@ Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`Add
 
 ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。
 
+普通 ChatModel 节点可在已发布的 `text/plain` 输出上配置 `tool_wait_notice`。首次调用匹配的已授权工具时开始计时。达到阈值仍在等待才从候选短句选一句，沿已有文本与 TTS 流输出。短句保留显式分句边界，以便 TTS 在等待工具时启动合成。工具已返回或本轮已取消时跳过提示。工具结果与最终回复继续走原校验流程。
+
 宿主可同时配置 `Config.VerifyToolResponse` callback，接收真实 `genx.ToolConversation`
 快照和最终回复草稿。返回空反馈接受回复；非空反馈让原生模型最多纠正两次，不由
 Transformer 生成工具名或参数。此配置要求 `ToolInvoker`，并暂存整个回复文本：中间

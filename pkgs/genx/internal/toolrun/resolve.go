@@ -56,6 +56,7 @@ func ResolveTools(ctx context.Context, invoker genx.ToolInvoker) ([]genx.ToolDef
 		seen[name] = struct{}{}
 		result = append(result, genx.ToolDefinition{
 			Name:        name,
+			Alias:       definition.Alias,
 			Description: strings.TrimSpace(definition.Description),
 			Argument:    &schemaClone,
 		})

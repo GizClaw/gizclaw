@@ -41,8 +41,16 @@ type ChatModelNode struct {
 	Temperature      *float32
 	MaxTokens        *int
 	StructuredOutput *StructuredOutput
+	ToolWaitNotice   *ToolWaitNotice
 	// DiscardResponse sends a bounded background request with no tools or graph output.
 	DiscardResponse bool
+}
+
+// ToolWaitNotice publishes a configured sentence during a pending tool call.
+type ToolWaitNotice struct {
+	ToolAlias string
+	Delay     time.Duration
+	Messages  []string
 }
 
 // StructuredOutput declares one provider-enforced JSON object response.

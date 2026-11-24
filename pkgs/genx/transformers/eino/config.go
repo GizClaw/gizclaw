@@ -570,6 +570,14 @@ func (config *normalizedConfig) validateGraph(graph GraphDefinition, path string
 			}
 		}
 	}
+	for _, node := range graph.Nodes {
+		if node.ChatModel != nil && node.ChatModel.ToolWaitNotice != nil &&
+			!slices.ContainsFunc(graph.Outputs, func(output OutputDefinition) bool {
+				return output.Node == node.ID && output.Field == node.Outputs["text"] && output.MIMEType == "text/plain"
+			}) {
+			return fmt.Errorf("eino: %s node %q tool_wait_notice requires a published text/plain output", path, node.ID)
+		}
+	}
 	if len(graph.Outputs) == 0 || primary != 1 {
 		return fmt.Errorf("eino: %s requires exactly one primary Output", path)
 	}
@@ -604,6 +612,14 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		}
 		if node.ChatModel.MaxTokens != nil && *node.ChatModel.MaxTokens <= 0 {
 			return fmt.Errorf("eino: %s MaxTokens must be positive", nodePath)
+		}
+		if notice := node.ChatModel.ToolWaitNotice; notice != nil {
+			if node.ChatModel.DiscardResponse || node.ChatModel.StructuredOutput != nil || node.Outputs["text"] == "" {
+				return fmt.Errorf("eino: %s tool_wait_notice requires ordinary text output", nodePath)
+			}
+			if !notice.valid() {
+				return fmt.Errorf("eino: %s has invalid tool_wait_notice", nodePath)
+			}
 		}
 		if output := node.ChatModel.StructuredOutput; output != nil {
 			if config.VerifyToolResponse != nil {
