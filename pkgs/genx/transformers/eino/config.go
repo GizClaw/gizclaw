@@ -19,13 +19,17 @@ const defaultMaxOutputBytes = 4 << 20
 
 // Config declares one reusable Eino-backed Transformer.
 type Config struct {
-	Agent       AgentConfig
-	Graph       GraphDefinition
-	Components  ComponentResolver
-	Lambdas     LambdaResolver
-	State       *StatePersistenceConfig
-	History     *HistoryConfig
-	Memory      *MemoryConfig
+	Agent      AgentConfig
+	Graph      GraphDefinition
+	Components ComponentResolver
+	Lambdas    LambdaResolver
+	State      *StatePersistenceConfig
+	History    *HistoryConfig
+	Memory     *MemoryConfig
+	// ToolInvoker may implement BeginToolTurn(context.Context, string)
+	// (context.Context, func()) for turn-scoped observation. The string is a
+	// server-generated output stream ID. Eino finishes the observation when
+	// the turn's Graph execution returns, including on error or cancellation.
 	ToolInvoker genx.ToolInvoker
 	// VerifyToolResponse checks a final draft against the actual conversation
 	// and current Tool results. When configured, reply text is buffered until

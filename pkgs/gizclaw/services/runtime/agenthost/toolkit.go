@@ -96,8 +96,10 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 		args = json.RawMessage(`{}`)
 	}
 	if i != nil && i.MCP != nil && i.MCP.Owns(name) {
+		operation := i.MCP.operations[name]
 		tools, err := i.MCP.ResolveCatalog(ctx)
 		if err != nil {
+			recordMCPReject(ctx, operation, mcpCatalogOrAuthUnavailable)
 			return recoverableToolError("unavailable", "MCP authorization is unavailable"), nil
 		}
 		for _, tool := range tools {
@@ -105,6 +107,7 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 				continue
 			}
 			if err := toolcatalog.ValidateArguments(tool, args); err != nil {
+				recordMCPReject(ctx, operation, mcpSchemaInvalid)
 				return recoverableToolError("invalid_arguments", "MCP arguments do not match the tool schema"), nil
 			}
 			if rejected := i.verifyTool(ctx, tool, args); rejected != nil {
@@ -113,7 +116,11 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 			slog.InfoContext(ctx, "agenthost: Tool execution requested", "tool_alias", tool.Alias, "source", tool.Source)
 			return i.MCP.invoke(ctx, name, args)
 		}
+		recordMCPReject(ctx, operation, mcpCatalogOrAuthUnavailable)
 		return recoverableToolError("unavailable", "MCP tool is unavailable"), nil
+	}
+	if i != nil && i.MCP != nil && strings.HasPrefix(name, mcpFunctionPrefix) {
+		recordMCPReject(ctx, mcpOperation{}, mcpCatalogOrAuthUnavailable)
 	}
 	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
 		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
